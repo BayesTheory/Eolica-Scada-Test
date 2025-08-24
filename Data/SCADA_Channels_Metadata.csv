@@ -1,0 +1,12 @@
+"Internal Name","IEC 61400-25 guideline name","ENTR Alliance name","Description","Notes","Reliable Measurement","Units same as ENTR","Unit (if different from ENTR)","RAW Signal (Bool)","Unit conversion constant (if RAW signal)","Frequency"
+"Datetime","dateTime",,"Measurement Date and Time in YYYY-MM-DD HH-MM-SS.SSS","UTC Time ",,,,,,
+"RotorSpeed","WROT.RotSpd","WROT.RotSpd","Rotor speed in RPM","Reed sensor (inductive measurement)","TRUE","TRUE",,"FALSE",,"1Hz"
+"GeneratorSpeed","WGEN.RotSpd","WGEN.RotSpd","Generator speed in RPM","0-10V Signal from Generator (not an exact measurement) -> the transmission ratio to the rotor is 11.6:1, Generator: SEG185-H-100 E","FALSE","TRUE",,"FALSE",,"1Hz"
+"GeneratorTemperature","WGEN.SttTmp","WGEN.SttTmp","Stator temperature in C","Generator: SEG185-H-100 E","TRUE","TRUE",,"FALSE",,"1Hz"
+"WindSpeed","WMET.HorWdSpd","WMET.HorWdSpd","Windspeed in m/s","Cup anemometer installed on nacelle, Sensor: Thies 4.3520.10.000","TRUE","TRUE",,"FALSE",,"1Hz"
+"PowerOutput","WCNV.kW",,"Converter active power in kW","Measured at the inverter as a 0-10 V signal and is not completely accurate; Default ENTR name is WCNV.W measured in W.","TRUE","FALSE","kW","FALSE",,"1Hz"
+"offsetWindDirection","WMET.HorWdDirRel","WMET.HorWdDirRel","Wind direction w.r.t. nacelle measured in degrees","Windvane on Nacel, Sensor: Thies 4.3129.00.041","TRUE","TRUE",,"FALSE",,"1Hz"
+"SpeiseSpannung","WROT.SupV","WROT.SupV","System supply voltage 24V ","Hub supply voltage; but need to check if this is the right position","TRUE","TRUE",,"FALSE",,"1Hz"
+"PitchDeg","WROT.BlPthAngVal","WROT.BlPthAngVal","Pitch angle in degrees","Balluff Linear magnetostriktive sensor postprocessed to degrees","TRUE","TRUE",,"FALSE",,"1Hz"
+"StatusAnlage","SERVER.TurSt","SERVER.TurSt","Turbine status ","Overall turbine status","TRUE","TRUE",,"FALSE",,"1Hz"
+"MaxWindHeute","WMET.HorWdMaxSpd_Dly","null","Max windspeed for this Day","No corresponding name in ENTR, Max wind speed for a given day, that is continuously updated troughout the day resulting in a monotonic increasing function.","TRUE","FALSE","m/s","FALSE",,"1Hz"

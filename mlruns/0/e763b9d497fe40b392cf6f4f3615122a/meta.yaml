@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/riana/OneDrive/Desktop/scada%20wind/PontoUnico/mlruns/0/e763b9d497fe40b392cf6f4f3615122a/artifacts
+end_time: 1756004884560
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: e763b9d497fe40b392cf6f4f3615122a
+run_name: 2XGboosting_fold_4
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1756004882844
+status: 3
+tags: []
+user_id: riana

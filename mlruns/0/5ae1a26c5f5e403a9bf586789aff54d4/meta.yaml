@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/riana/OneDrive/Desktop/scada%20wind/PontoUnico/mlruns/0/5ae1a26c5f5e403a9bf586789aff54d4/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 5ae1a26c5f5e403a9bf586789aff54d4
+run_name: 3GRU_CV_run
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1756004443062
+status: 1
+tags: []
+user_id: riana

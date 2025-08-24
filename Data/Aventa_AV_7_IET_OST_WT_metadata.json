@@ -1,0 +1,69 @@
+{
+  "name": "IET-OST Aventa Research Wind Turbibe",
+  "comments": "Aventa AV-7 Turbine model owned and operated by IET OST",
+  "assembly": {
+    "drivetrain": "belt_drive",
+    "rotor_orientation": "Upwind",
+    "number_of_blades": 3,
+    "hub_height": 18.0,
+    "rotor_diameter": 12.9,
+    "rated_power": 6200.0
+  },
+  "components": {
+    "blade": {
+      "system_mass": 117.0
+    },
+    "hub": {
+      "elastic_properties_mb": {
+        "system_mass": 119,
+        "system_inertia": "None"
+      }
+    },
+    "nacelle": {
+      "drivetrain": {
+        "gear_ratio": 12.0
+      },
+      "generator": {
+        "generator_type": "PMSG"
+      }
+    },
+    "tower": {
+      "system_mass": 14600
+    },
+    "foundation": {
+      "height": 0
+    }
+  },
+  "materials": [
+    {
+      "name": "concrete",
+      "description": "Concrete of the tower",
+      "orth": 0,
+      "E": "NaN",
+      "nu": "NaN",
+      "rho": "NaN"
+    },
+    {
+      "name": "steel",
+      "description": "Steel of the tower",
+      "orth": 0,
+      "rho": "NaN",
+      "E": "NaN",
+      "nu": "NaN"
+    }
+  ],
+  "control": {
+    "supervisory": {
+      "Vin": 2.0,
+      "Vout": 12.0,
+      "tsMax": "NaN"
+    },
+    "pitch": {
+      "max_pitch_rate": "NaN"
+    },
+    "torque": {
+      "tsr": "NaN",
+      "VS_minspd": 0
+    }
+  }
+}
