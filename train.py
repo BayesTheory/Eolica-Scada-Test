@@ -1,11 +1,9 @@
 """
-Motor de Treinamento Unificado (v2.6)
-- Garante que a validação cruzada para todos os modelos use TimeSeriesSplit,
-  respeitando a ordem temporal dos dados.
-- Corrige o vazamento de dados (data leakage) no XGBoost para prevenir overfitting
-  e garantir uma avaliação justa.
-- Adicionadas métricas MAE e R² na avaliação.
-- Para modelos PyTorch, gera e salva um gráfico de convergência da perda.
+Motor de Treinamento Unificado (v2.8)
+- Implementa boas práticas do MLflow: nomes de execução descritivos e tags customizáveis.
+- Corrige o vazamento de dados (data leakage) no XGBoost para prevenir overfitting.
+- Adiciona métricas MAE e R² e gráfico de convergência da perda.
+- Garante que a validação cruzada para todos os modelos use TimeSeriesSplit.
 - Adicionada barra de progresso (tqdm).
 """
 import pandas as pd
@@ -24,6 +22,24 @@ import pickle
 from tqdm import tqdm
 from utils import create_sequences
 import matplotlib.pyplot as plt
+
+def get_descriptive_run_name(model_key, config):
+    """Cria um nome de execução descritivo com base nos hiperparâmetros."""
+    params = config['params']
+    model_type = config.get('type', 'pytorch')
+    
+    if model_type == 'pytorch':
+        # Ex: 3GRU_e-10_lr-0.001
+        return f"{model_key}_e-{params.get('epochs', 'N/A')}_lr-{params.get('learning_rate', 'N/A')}"
+    elif model_type == 'tree_based':
+        # Ex: 2XGboosting_est-500_lr-0.05
+        return f"{model_key}_est-{params.get('n_estimators', 'N/A')}_lr-{params.get('learning_rate', 'N/A')}"
+    elif model_type == 'statistical':
+        # Ex: 1Arima_ord-5-1-0
+        order_str = "-".join(map(str, params.get('order', '')))
+        return f"{model_key}_ord-{order_str}"
+    else:
+        return f"{model_key}_CV_run"
 
 # ==============================================================================
 # MOTOR DE TREINAMENTO PARA PYTORCH (GRU, LSTM, etc.)
@@ -50,8 +66,10 @@ def run_pytorch_cv(model_class, model_key, config, input_window_size, output_hor
     tscv = TimeSeriesSplit(n_splits=cv_splits)
     fold_metrics = {'rmse': [], 'mae': [], 'r2': []}
 
-    with mlflow.start_run(run_name=f"{model_key}_CV_run") as parent_run:
+    run_name = get_descriptive_run_name(model_key, config)
+    with mlflow.start_run(run_name=run_name) as parent_run:
         mlflow.log_params(config['params'])
+        mlflow.set_tags(config.get('run_tags', {}))
         mlflow.set_tag("model_key", model_key)
         print(f"MLflow Parent Run ID: {parent_run.info.run_id}")
 
@@ -136,8 +154,10 @@ def run_arima_cv(model_class, model_key, config, output_horizon_size, cv_splits)
     tscv = TimeSeriesSplit(n_splits=cv_splits)
     fold_metrics = {'rmse': [], 'mae': [], 'r2': []}
 
-    with mlflow.start_run(run_name=f"{model_key}_CV_run") as parent_run:
+    run_name = get_descriptive_run_name(model_key, config)
+    with mlflow.start_run(run_name=run_name) as parent_run:
         mlflow.log_params(config['params'])
+        mlflow.set_tags(config.get('run_tags', {}))
         mlflow.set_tag("model_key", model_key)
         print(f"MLflow Parent Run ID: {parent_run.info.run_id}")
 
@@ -169,7 +189,6 @@ def run_arima_cv(model_class, model_key, config, output_horizon_size, cv_splits)
 def _create_lagged_features_corrected(df, features_to_lag, target_col, n_lags):
     """
     Função auxiliar corrigida para criar features de lag SEM VAZAMENTO DE DADOS.
-    As features (X) são criadas a partir do passado, e o alvo (y) é o valor presente.
     """
     df_lags = pd.DataFrame(index=df.index)
     for col in features_to_lag:
@@ -196,8 +215,10 @@ def run_xgboost_cv(model_class, model_key, config, cv_splits):
     tscv = TimeSeriesSplit(n_splits=cv_splits)
     fold_metrics = {'rmse': [], 'mae': [], 'r2': []}
 
-    with mlflow.start_run(run_name=f"{model_key}_CV_run") as parent_run:
+    run_name = get_descriptive_run_name(model_key, config)
+    with mlflow.start_run(run_name=run_name) as parent_run:
         mlflow.log_params(config['params'])
+        mlflow.set_tags(config.get('run_tags', {}))
         mlflow.set_tag("model_key", model_key)
         print(f"MLflow Parent Run ID: {parent_run.info.run_id}")
         
