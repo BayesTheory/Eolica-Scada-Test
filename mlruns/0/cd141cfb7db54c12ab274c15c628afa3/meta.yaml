@@ -1,5 +1,5 @@
 artifact_uri: file:///C:/Users/riana/OneDrive/Desktop/scada%20wind/PontoUnico/mlruns/0/cd141cfb7db54c12ab274c15c628afa3/artifacts
-end_time: null
+end_time: 1756008402755
 entry_point_name: ''
 experiment_id: '0'
 lifecycle_stage: active
@@ -9,6 +9,6 @@ source_name: ''
 source_type: 4
 source_version: ''
 start_time: 1756007165142
-status: 1
+status: 3
 tags: []
 user_id: riana
