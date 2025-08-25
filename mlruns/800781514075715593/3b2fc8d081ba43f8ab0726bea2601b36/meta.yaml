@@ -1,0 +1,14 @@
+artifact_uri: mlflow-artifacts:/800781514075715593/3b2fc8d081ba43f8ab0726bea2601b36/artifacts
+end_time: 1756093596372
+entry_point_name: ''
+experiment_id: '800781514075715593'
+lifecycle_stage: active
+run_id: 3b2fc8d081ba43f8ab0726bea2601b36
+run_name: 2XGboosting_CV_run
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1756093590650
+status: 4
+tags: []
+user_id: riana
