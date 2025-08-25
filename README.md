@@ -15,3 +15,71 @@ Este projeto implementa um pipeline de Machine Learning de ponta a ponta para an
 ---
 
 ## 📁 Estrutura do Projeto
+
+.
+├── Data/
+│   ├── Aventa_AV7_IET_OST_SCADA.csv  # Dados brutos (NÃO versionado com Git)
+│   ├── scada_resampled_10min_base.csv  # Dados processados para inferência
+│   └── status_operacional.csv        # Dados de operação normal para treino
+├── mlflow_artifacts_analyzer/
+├── mlruns/
+├── .gitignore
+├── analise_completa.py               # Script principal para inferência e análise
+├── config.yaml                       # Arquivo central de configuração
+├── dataprocessing.py                 # Script para processar os dados brutos
+├── model_autoencoder.py              # Definição da arquitetura do modelo
+├── train_anomaly_model.py            # Motor de treinamento do modelo
+└── README.md                         # Este arquivo
+
+
+---
+
+## ⚙️ Instalação e Configuração
+
+1.  **Clone o repositório:**
+    ```bash
+    git clone [https://github.com/BayesTheory/Eolica-Scada-Test.git](https://github.com/BayesTheory/Eolica-Scada-Test.git)
+    cd Eolica-Scada-Test
+    ```
+
+2.  **Crie um ambiente virtual (recomendado):**
+    ```bash
+    python -m venv venv
+    # No Windows
+    .\venv\Scripts\activate
+    # No macOS/Linux
+    # source venv/bin/activate
+    ```
+
+3.  **Instale as dependências:**
+    Crie um arquivo `requirements.txt` com o conteúdo abaixo e rode o comando `pip install`.
+
+    **`requirements.txt`:**
+    ```
+    pandas
+    numpy
+    torch
+    scikit-learn
+    mlflow
+    matplotlib
+    seaborn
+    pyyaml
+    ```
+
+    **Comando de instalação:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+---
+
+## Workflow de Uso
+
+O pipeline é executado em 3 etapas principais.
+
+### Passo 1: Processamento de Dados
+
+Execute este script uma única vez para gerar os arquivos CSV necessários a partir dos seus dados brutos.
+
+```bash
+python dataprocessing.py
