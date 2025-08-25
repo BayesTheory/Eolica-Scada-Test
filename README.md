@@ -78,3 +78,7 @@ O fluxo de informação ocorre da seguinte maneira:
 4.  A API utiliza os especialistas (`AnomalyAnalyzer` e `Forecaster`), que carregam os **modelos do MLflow** para processar a solicitação.
 5.  A API retorna um relatório estruturado (JSON) para o Co-piloto.
 6.  O **Google Gemini** recebe o JSON e o traduz em uma resposta formatada e inteligente para o usuário, seguindo as regras de negócio definidas no prompt.
+
+##Dataset
+
+https://zenodo.org/records/15700928
