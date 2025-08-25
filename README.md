@@ -71,13 +71,3 @@ Este projeto implementa um pipeline de Machine Learning de ponta a ponta para an
 
 ---
 
-## Workflow de Uso
-
-O pipeline é executado em 3 etapas principais.
-
-### Passo 1: Processamento de Dados
-
-Execute este script uma única vez para gerar os arquivos CSV necessários a partir dos seus dados brutos.
-
-```bash
-python dataprocessing.py
