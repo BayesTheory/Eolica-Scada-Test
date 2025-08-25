@@ -1,5 +1,5 @@
 artifact_uri: mlflow-artifacts:/570894374816099366/b8ba435b990543968e41882a58222567/artifacts
-end_time: null
+end_time: 1756100335663
 entry_point_name: ''
 experiment_id: '570894374816099366'
 lifecycle_stage: active
@@ -9,6 +9,6 @@ source_name: ''
 source_type: 4
 source_version: ''
 start_time: 1756094547957
-status: 1
+status: 3
 tags: []
 user_id: riana
