@@ -1,0 +1,68 @@
+# ==============================================================================
+# PAINEL DE CONTROLE - PREVISÃO DE SÉRIES TEMPORAIS
+# ==============================================================================
+
+# --- 1. Definições da Série Temporal (em passos de 10 minutos) ---
+INPUT_WINDOW_STEPS: 144  # Usar 24 horas de dados para prever (144 * 10 min = 24h)
+OUTPUT_HORIZON_STEPS: 72    # Prever os próximos 30 minutos (3 * 10 min = 30 min)
+
+# --- 2. Configuração do Cross-Validation ---
+CV_SPLITS: 4 # Número de 'folds' na validação cruzada temporal
+
+# --- 3. Dicionário de Configurações dos Modelos ---
+# O modelo a ser executado é definido via linha de comando ou alterado no main.py
+MODELOS:
+  '1Arima':
+    type: 'statistical'
+    module_name: 'Modelos.1Arima'
+    class_name: 'ARIMAModel'
+    features: ['PowerOutput_mean']
+    params:
+      order: [1, 0, 1] # YAML usa listas para tuplas
+  '2XGboosting':
+    type: 'tree_based'
+    module_name: 'Modelos.2XGboosting'
+    class_name: 'XGBoostModel'
+    features: ['PowerOutput_mean', 'WindSpeed_mean', 'RotorSpeed_mean', 'GeneratorTemperature_mean', 'PitchDeg_mean']
+    params:
+      n_estimators: 500
+      learning_rate: 0.05
+      max_depth: 5
+      subsample: 0.8
+  '3GRU':
+    type: 'pytorch'
+    module_name: 'Modelos.3GRU'
+    class_name: 'GRUModel'
+    features: ['PowerOutput_mean', 'WindSpeed_mean', 'RotorSpeed_mean', 'GeneratorTemperature_mean']
+    params:
+      hidden_size: 50
+      n_layers: 2
+      dropout: 0.2
+      epochs: 10
+      batch_size: 32
+      learning_rate: 0.001
+  '4LSTM':
+    type: 'pytorch'
+    module_name: 'Modelos.4LSTM'
+    class_name: 'LSTMModel'
+    features: ['PowerOutput_mean', 'WindSpeed_mean', 'RotorSpeed_mean', 'GeneratorTemperature_mean']
+    params:
+      hidden_size: 50
+      n_layers: 2
+      dropout: 0.2
+      epochs: 10
+      batch_size: 32
+      learning_rate: 0.001
+  '5TFT':
+    type: 'pytorch'
+    module_name: 'Modelos.5TFT'
+    class_name: 'TFTModel'
+    features: ['PowerOutput_mean', 'WindSpeed_mean', 'RotorSpeed_mean', 'GeneratorTemperature_mean', 'PitchDeg_mean']
+    params:
+      hidden_size: 64
+      attention_head_size: 4
+      n_layers: 3
+      dropout: 0.1
+      epochs: 75
+      batch_size: 16
+      learning_rate: 0.0001

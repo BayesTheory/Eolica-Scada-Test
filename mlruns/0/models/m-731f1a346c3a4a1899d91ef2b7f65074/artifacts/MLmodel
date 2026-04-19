@@ -1,0 +1,31 @@
+artifact_path: file:///C:/Users/riana/OneDrive/Desktop/scada%20wind/PontoUnico/mlruns/0/models/m-731f1a346c3a4a1899d91ef2b7f65074/artifacts
+flavors:
+  python_function:
+    config:
+      device: null
+    data: data
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.pytorch
+    pickle_module_name: mlflow.pytorch.pickle_module
+    python_version: 3.13.5
+  pytorch:
+    code: null
+    model_data: data
+    pytorch_version: 2.8.0+cpu
+is_signature_from_type_hint: false
+mlflow_version: 3.3.1
+model_id: m-731f1a346c3a4a1899d91ef2b7f65074
+model_size_bytes: 114625
+model_uuid: m-731f1a346c3a4a1899d91ef2b7f65074
+prompts: null
+run_id: 6e1afbb6773b4603a2eb057a573f705e
+signature:
+  inputs: '[{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 144,
+    4]}}]'
+  outputs: '[{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1,
+    72]}}]'
+  params: null
+type_hint_from_example: false
+utc_time_created: '2025-08-24 02:35:31.884959'
