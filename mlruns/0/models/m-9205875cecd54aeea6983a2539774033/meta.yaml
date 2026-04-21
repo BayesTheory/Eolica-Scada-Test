@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/riana/OneDrive/Desktop/scada%20wind/PontoUnico/mlruns/0/models/m-9205875cecd54aeea6983a2539774033/artifacts
+creation_timestamp: 1756007159586
+experiment_id: '0'
+last_updated_timestamp: 1756007165118
+model_id: m-9205875cecd54aeea6983a2539774033
+model_type: null
+name: model_fold_2
+source_run_id: 26926592119d485eb1f8a6dbfd03c80f
+status: 2
+status_message: null

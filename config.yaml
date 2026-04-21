@@ -1,16 +1,13 @@
-# ==============================================================================
-# PAINEL DE CONTROLE - PREVISÃO DE SÉRIES TEMPORAIS
-# ==============================================================================
+# config.yaml (Versão 2.8)
 
-# --- 1. Definições da Série Temporal (em passos de 10 minutos) ---
-INPUT_WINDOW_STEPS: 144  # Usar 24 horas de dados para prever (144 * 10 min = 24h)
-OUTPUT_HORIZON_STEPS: 72    # Prever os próximos 30 minutos (3 * 10 min = 30 min)
+# --- 1. Definições da Série Temporal ---
+INPUT_WINDOW_STEPS: 144
+OUTPUT_HORIZON_STEPS: 3
 
 # --- 2. Configuração do Cross-Validation ---
-CV_SPLITS: 4 # Número de 'folds' na validação cruzada temporal
+CV_SPLITS: 4
 
 # --- 3. Dicionário de Configurações dos Modelos ---
-# O modelo a ser executado é definido via linha de comando ou alterado no main.py
 MODELOS:
   '1Arima':
     type: 'statistical'
@@ -18,7 +15,11 @@ MODELOS:
     class_name: 'ARIMAModel'
     features: ['PowerOutput_mean']
     params:
-      order: [1, 0, 1] # YAML usa listas para tuplas
+      order: [5, 1, 0]
+    run_tags:
+      type: 'statistical'
+      status: 'baseline'
+
   '2XGboosting':
     type: 'tree_based'
     module_name: 'Modelos.2XGboosting'
@@ -28,7 +29,10 @@ MODELOS:
       n_estimators: 500
       learning_rate: 0.05
       max_depth: 5
-      subsample: 0.8
+    run_tags:
+      type: 'tree_based'
+      status: 'baseline'
+
   '3GRU':
     type: 'pytorch'
     module_name: 'Modelos.3GRU'
@@ -41,6 +45,11 @@ MODELOS:
       epochs: 10
       batch_size: 32
       learning_rate: 0.001
+    run_tags:
+      type: 'recurrent_neural_network'
+      status: 'baseline'
+      architecture: 'GRU'
+
   '4LSTM':
     type: 'pytorch'
     module_name: 'Modelos.4LSTM'
@@ -53,6 +62,11 @@ MODELOS:
       epochs: 10
       batch_size: 32
       learning_rate: 0.001
+    run_tags:
+      type: 'recurrent_neural_network'
+      status: 'baseline'
+      architecture: 'LSTM'
+
   '5TFT':
     type: 'pytorch'
     module_name: 'Modelos.5TFT'
@@ -63,6 +77,10 @@ MODELOS:
       attention_head_size: 4
       n_layers: 3
       dropout: 0.1
-      epochs: 75
+      epochs: 15 # TFT é mais pesado, menos épocas para testar
       batch_size: 16
       learning_rate: 0.0001
+    run_tags:
+      type: 'transformer'
+      status: 'experimental'
+      architecture: 'TFT'
