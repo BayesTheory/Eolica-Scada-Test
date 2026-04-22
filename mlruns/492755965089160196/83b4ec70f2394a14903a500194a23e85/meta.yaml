@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/riana/OneDrive/Desktop/scada%20wind/PontoUnico/mlruns/492755965089160196/83b4ec70f2394a14903a500194a23e85/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '492755965089160196'
+lifecycle_stage: active
+run_id: 83b4ec70f2394a14903a500194a23e85
+run_name: 5TFT_e-15_lr-0.0001
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1756010987898
+status: 1
+tags: []
+user_id: riana

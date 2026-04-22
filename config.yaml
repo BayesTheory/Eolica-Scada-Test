@@ -66,6 +66,29 @@ MODELOS:
       type: 'recurrent_neural_network'
       status: 'baseline'
       architecture: 'LSTM'
+      
+  '4.5LSTM_tunado':
+    type: 'pytorch_classifier'
+    module_name: 'Modelos.4LSTM_tunado'
+    class_name: 'LSTMTunadoModel'
+    features: [
+        'PowerOutput', 'WindSpeed', 'RotorSpeed', 'GeneratorTemperature', 'PitchDeg',
+        'GeneratorTemperature_std_1h', 'WindSpeed_std_1h', 'PowerOutput_std_1h',
+        'RotorSpeed_std_1h', 'PitchDeg_std_1h',
+        'GeneratorTemperature_roc_1h', 'WindSpeed_roc_1h', 'PowerOutput_roc_1h',
+        'RotorSpeed_roc_1h', 'PitchDeg_roc_1h'
+    ]
+    params:
+      hidden_size: 128
+      n_layers: 4
+      dropout: 0.3
+      epochs: 15
+      batch_size: 32
+      learning_rate: 0.0005
+    run_tags:
+      type: 'recurrent_neural_network'
+      status: 'experimental'
+      architecture: 'LSTM_Tunado'
 
   '5TFT':
     type: 'pytorch'

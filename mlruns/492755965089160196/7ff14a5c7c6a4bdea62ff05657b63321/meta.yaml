@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/riana/OneDrive/Desktop/scada%20wind/PontoUnico/mlruns/492755965089160196/7ff14a5c7c6a4bdea62ff05657b63321/artifacts
+end_time: 1756010615523
+entry_point_name: ''
+experiment_id: '492755965089160196'
+lifecycle_stage: active
+run_id: 7ff14a5c7c6a4bdea62ff05657b63321
+run_name: 4LSTM_fold_3
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1756010348243
+status: 3
+tags: []
+user_id: riana
