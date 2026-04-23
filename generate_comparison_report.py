@@ -1,5 +1,5 @@
 """
-Script de Geração de Relatório Comparativo.
+Script de Geração de Relatório Comparativo (v1.1)
 
 Conecta-se ao MLflow, busca os resultados dos principais modelos treinados,
 e gera uma tabela e um gráfico de barras comparando suas métricas de desempenho.
@@ -9,15 +9,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 
-# Configure para apontar para o seu servidor MLflow
+# --- Configurações ---
 MLFLOW_TRACKING_URI = "http://127.0.0.1:5000"
-# Nome do experimento no MLflow (geralmente 'Default' se você não mudou)
-EXPERIMENT_NAME = "Default"
+EXPERIMENT_NAME = "Wind Power Forecasting"
 
 def generate_comparison_report():
+    """Função principal para ser chamada pelo main.py."""
     print("--- Gerando Relatório Comparativo de Modelos ---")
     
-    # --- 1. Conectar ao MLflow e buscar os dados ---
     try:
         if MLFLOW_TRACKING_URI:
             mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
@@ -27,22 +26,18 @@ def generate_comparison_report():
             print(f"ERRO: Experimento '{EXPERIMENT_NAME}' não encontrado.")
             return
             
-        # Busca apenas os 'runs' pais (os que agregam os folds)
-        # Filtramos por runs que não têm um 'parentRunId' e que possuem a métrica avg_rmse_kW
         runs_df = mlflow.search_runs(
             experiment_ids=[experiment.experiment_id],
             filter_string="tags.'mlflow.parentRunId' IS NULL AND metrics.avg_rmse_kW > 0"
         )
         if runs_df.empty:
-            print("Nenhum run de CV completo encontrado para comparar.")
+            print("Nenhum run de CV completo (com previsão de energia) encontrado para comparar.")
             return
     except Exception as e:
         print(f"ERRO ao conectar ao MLflow ou buscar dados: {e}")
         print("Certifique-se de que o servidor MLflow está rodando (`python -m mlflow ui`)")
         return
 
-    # --- 2. Processar os dados para o relatório ---
-    # Selecionar as colunas de interesse
     metric_cols = ['metrics.avg_rmse_kW', 'metrics.avg_mae_kW', 'metrics.avg_r2_score']
     tag_col = 'tags.model_key'
     
@@ -54,12 +49,10 @@ def generate_comparison_report():
         'metrics.avg_r2_score': 'R² Score'
     }, inplace=True)
 
-    # Para cada modelo, pegar o melhor resultado (menor RMSE)
     report_df = report_df.loc[report_df.groupby('Modelo')['RMSE (kW)'].idxmin()]
     report_df.set_index('Modelo', inplace=True)
-    report_df = report_df.sort_values('RMSE (kW)') # Ordena do melhor para o pior
+    report_df = report_df.sort_values('RMSE (kW)')
 
-    # --- 3. Gerar e salvar a tabela ---
     output_dir = 'reports'
     os.makedirs(output_dir, exist_ok=True)
     table_path = os.path.join(output_dir, 'comparison_report.csv')
@@ -68,30 +61,21 @@ def generate_comparison_report():
     print(report_df.round(3))
     print(f"\nTabela salva em: {table_path}")
 
-    # --- 4. Gerar e salvar o gráfico ---
     fig, axes = plt.subplots(1, 3, figsize=(20, 6), sharey=False)
     fig.suptitle('Comparação de Desempenho dos Modelos (Média dos Folds)', fontsize=16)
 
-    # Gráfico de RMSE
     report_df['RMSE (kW)'].plot(kind='bar', ax=axes[0], color='skyblue', title='RMSE (Quanto Menor, Melhor)')
-    axes[0].set_ylabel('RMSE (kW)')
-    axes[0].tick_params(axis='x', rotation=45)
+    axes[0].set_ylabel('RMSE (kW)'); axes[0].tick_params(axis='x', rotation=45)
 
-    # Gráfico de MAE
     report_df['MAE (kW)'].plot(kind='bar', ax=axes[1], color='salmon', title='MAE (Quanto Menor, Melhor)')
-    axes[1].set_ylabel('MAE (kW)')
-    axes[1].tick_params(axis='x', rotation=45)
+    axes[1].set_ylabel('MAE (kW)'); axes[1].tick_params(axis='x', rotation=45)
 
-    # Gráfico de R²
     report_df['R² Score'].plot(kind='bar', ax=axes[2], color='lightgreen', title='R² Score (Quanto Maior, Melhor)')
-    axes[2].set_ylabel('R² Score')
-    axes[2].tick_params(axis='x', rotation=45)
-    # Ajusta o limite inferior do eixo y para o R² para melhor visualização
+    axes[2].set_ylabel('R² Score'); axes[2].tick_params(axis='x', rotation=45)
     min_r2 = report_df['R² Score'].min()
     axes[2].set_ylim(bottom=max(0, min_r2 - 0.1), top=1.0)
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    
     plot_path = os.path.join(output_dir, 'comparison_report.png')
     plt.savefig(plot_path)
     print(f"Gráfico comparativo salvo em: {plot_path}")
