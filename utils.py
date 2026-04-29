@@ -1,4 +1,3 @@
-# utils.py
 """
 Módulo de funções auxiliares (ferramentas).
 Contém a lógica para criar sequências (janelas) para modelos de série temporal.
@@ -11,6 +10,7 @@ def create_sequences(data, input_window_size, output_horizon_size):
     Formato de saída: (amostras, passos_de_tempo, features)
     """
     X, y = [], []
+    # O loop deve garantir que haja dados suficientes para a janela de entrada e o horizonte de saída
     for i in range(len(data) - input_window_size - output_horizon_size + 1):
         # Janela de entrada (passado)
         input_seq = data[i:(i + input_window_size)]

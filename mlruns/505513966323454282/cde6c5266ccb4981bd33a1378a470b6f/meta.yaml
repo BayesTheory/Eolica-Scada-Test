@@ -1,0 +1,14 @@
+artifact_uri: mlflow-artifacts:/505513966323454282/cde6c5266ccb4981bd33a1378a470b6f/artifacts
+end_time: 1756062345496
+entry_point_name: ''
+experiment_id: '505513966323454282'
+lifecycle_stage: active
+run_id: cde6c5266ccb4981bd33a1378a470b6f
+run_name: 4LSTM_tunado_e-50_lr-0.0001
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1756060763382
+status: 4
+tags: []
+user_id: riana

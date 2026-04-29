@@ -1,109 +1,106 @@
-# config.yaml (Versão 2.8)
+# config.yaml (v4.4 - Apontando para o Modelo Autoencoder Dedicado)
 
-# --- 1. Definições da Série Temporal ---
+# ======================================================================
+# SEÇÃO 1: CONFIGURAÇÕES GLOBAIS
+# ======================================================================
 INPUT_WINDOW_STEPS: 144
-OUTPUT_HORIZON_STEPS: 3
-
-# --- 2. Configuração do Cross-Validation ---
 CV_SPLITS: 4
 
-# --- 3. Dicionário de Configurações dos Modelos ---
-MODELOS:
+# ======================================================================
+# SEÇÃO 2: DEFINIÇÃO DOS MODELOS DISPONÍVEIS
+# ======================================================================
+MODEL_DEFINITIONS:
   '1Arima':
-    type: 'statistical'
     module_name: 'Modelos.1Arima'
     class_name: 'ARIMAModel'
-    features: ['PowerOutput_mean']
-    params:
-      order: [5, 1, 0]
-    run_tags:
-      type: 'statistical'
-      status: 'baseline'
-
+  
   '2XGboosting':
-    type: 'tree_based'
     module_name: 'Modelos.2XGboosting'
     class_name: 'XGBoostModel'
-    features: ['PowerOutput_mean', 'WindSpeed_mean', 'RotorSpeed_mean', 'GeneratorTemperature_mean', 'PitchDeg_mean']
-    params:
-      n_estimators: 500
-      learning_rate: 0.05
-      max_depth: 5
-    run_tags:
-      type: 'tree_based'
-      status: 'baseline'
 
-  '3GRU':
-    type: 'pytorch'
-    module_name: 'Modelos.3GRU'
-    class_name: 'GRUModel'
-    features: ['PowerOutput_mean', 'WindSpeed_mean', 'RotorSpeed_mean', 'GeneratorTemperature_mean']
-    params:
-      hidden_size: 50
-      n_layers: 2
-      dropout: 0.2
-      epochs: 10
-      batch_size: 32
-      learning_rate: 0.001
-    run_tags:
-      type: 'recurrent_neural_network'
-      status: 'baseline'
-      architecture: 'GRU'
-
-  '4LSTM':
-    type: 'pytorch'
-    module_name: 'Modelos.4LSTM'
+  '3LSTM':
+    module_name: 'Modelos.3LSTM'
     class_name: 'LSTMModel'
-    features: ['PowerOutput_mean', 'WindSpeed_mean', 'RotorSpeed_mean', 'GeneratorTemperature_mean']
-    params:
-      hidden_size: 50
-      n_layers: 2
-      dropout: 0.2
-      epochs: 10
-      batch_size: 32
-      learning_rate: 0.001
-    run_tags:
-      type: 'recurrent_neural_network'
-      status: 'baseline'
-      architecture: 'LSTM'
-      
-  '4.5LSTM_tunado':
-    type: 'pytorch_classifier'
-    module_name: 'Modelos.4LSTM_tunado'
-    class_name: 'LSTMTunadoModel'
-    features: [
-        'PowerOutput', 'WindSpeed', 'RotorSpeed', 'GeneratorTemperature', 'PitchDeg',
-        'GeneratorTemperature_std_1h', 'WindSpeed_std_1h', 'PowerOutput_std_1h',
-        'RotorSpeed_std_1h', 'PitchDeg_std_1h',
-        'GeneratorTemperature_roc_1h', 'WindSpeed_roc_1h', 'PowerOutput_roc_1h',
-        'RotorSpeed_roc_1h', 'PitchDeg_roc_1h'
-    ]
-    params:
-      hidden_size: 128
-      n_layers: 4
-      dropout: 0.3
-      epochs: 15
-      batch_size: 32
-      learning_rate: 0.0005
-    run_tags:
-      type: 'recurrent_neural_network'
-      status: 'experimental'
-      architecture: 'LSTM_Tunado'
 
-  '5TFT':
-    type: 'pytorch'
-    module_name: 'Modelos.5TFT'
-    class_name: 'TFTModel'
-    features: ['PowerOutput_mean', 'WindSpeed_mean', 'RotorSpeed_mean', 'GeneratorTemperature_mean', 'PitchDeg_mean']
-    params:
-      hidden_size: 64
-      attention_head_size: 4
-      n_layers: 3
-      dropout: 0.1
-      epochs: 15 # TFT é mais pesado, menos épocas para testar
-      batch_size: 16
-      learning_rate: 0.0001
-    run_tags:
-      type: 'transformer'
-      status: 'experimental'
-      architecture: 'TFT'
+  # ATUALIZADO: Aponta para o novo arquivo e a nova classe do Autoencoder.
+  '3LSTM_Autoencoder':
+    module_name: 'Modelos.4LSTMAutoencoder'
+    class_name: 'LSTMAutoencoderModel'
+
+# ======================================================================
+# SEÇÃO 3: MISSÕES (PIPELINES)
+# ======================================================================
+MISSIONS:
+  # --------------------------------------------------------------------
+  # MISSÃO A: POWER FORECASTING (NÃO FOI ALTERADA)
+  # --------------------------------------------------------------------
+  power_forecasting:
+    experiment_name: "Power Forecasting"
+    trainer_script: 'train_forecasting_model'
+    model_keys_to_run: ['1Arima', '2XGboosting', '3LSTM']
+    model_params:
+      '1Arima':
+        features: ['PowerOutput']
+        params: { order: [5, 1, 0] }
+        run_tags: { type: 'statistical', mission: 'forecasting' }
+      
+      '2XGboosting':
+        features: ['PowerOutput', 'WindSpeed', 'RotorSpeed', 'GeneratorTemperature', 'PitchDeg']
+        params: { n_estimators: 500, learning_rate: 0.05, max_depth: 5 }
+        run_tags: { type: 'tree_based', mission: 'forecasting' }
+      
+      '3LSTM':
+        features: ['PowerOutput', 'WindSpeed', 'RotorSpeed', 'GeneratorTemperature']
+        target: 'PowerOutput'
+        params:
+          hidden_size: 50
+          n_layers: 2
+          dropout: 0.2
+          epochs: 20
+          batch_size: 32
+          learning_rate: 0.001
+        run_tags: { type: 'recurrent_neural_network', mission: 'forecasting' }
+
+  # --------------------------------------------------------------------
+  # MISSÃO B: FAULT DETECTION (AGORA COM DUAS ESTRATÉGIAS)
+  # --------------------------------------------------------------------
+  fault_detection:
+    experiment_name: "Anomaly Detection by Reconstruction"
+    trainer_script: 'train_anomaly_model'
+    
+    # Lista de modelos que podem ser executados nesta missão.
+    model_keys_to_run: ['3LSTM', '3LSTM_Autoencoder'] 
+    
+    model_name_in_registry: "wind-turbine-health-specialist"
+    
+    model_params:
+      # ESTRATÉGIA 1: Preditiva (Causa -> Efeito)
+      '3LSTM':
+        condition_features: ['WindSpeed', 'PowerOutput', 'PitchDeg']
+        health_features: ['GeneratorTemperature', 'RotorSpeed']
+        input_window_steps: 72
+        params:
+          hidden_size: 64
+          n_layers: 2
+          dropout: 0.3
+          epochs: 15
+          batch_size: 32
+          learning_rate: 0.001
+        run_tags: { type: 'recurrent_predictive', mission: 'anomaly_detection' }
+
+      # ESTRATÉGIA 2: Autoencoder (Reconstrução da Assinatura)
+      '3LSTM_Autoencoder':
+        features: ['WindSpeed', 'PowerOutput', 'PitchDeg', 'GeneratorTemperature', 'RotorSpeed']
+        input_window_steps: 60
+        params:
+          hidden_size: 32
+          n_layers: 2
+          dropout: 0.3
+          epochs: 20
+          batch_size: 64
+          learning_rate: 0.001
+        run_tags: { type: 'autoencoder', mission: 'anomaly_detection' }
+
+    detector_params:
+      threshold_std: 3.0
+      persistence_window: 6

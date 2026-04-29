@@ -1,0 +1,14 @@
+artifact_uri: mlflow-artifacts:/570894374816099366/d1767a4f50e442f7949fd4072e97e6e3/artifacts
+end_time: 1756071832525
+entry_point_name: ''
+experiment_id: '570894374816099366'
+lifecycle_stage: active
+run_id: d1767a4f50e442f7949fd4072e97e6e3
+run_name: Train_Specialist_3LSTM_Autoencoder
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1756071771075
+status: 4
+tags: []
+user_id: riana
