@@ -17,20 +17,18 @@ Este projeto implementa um pipeline de Machine Learning de ponta a ponta para an
 ## 📁 Estrutura do Projeto
 
 .
-├── Data/
-│   ├── Aventa_AV7_IET_OST_SCADA.csv  # Dados brutos (NÃO versionado com Git)
-│   ├── scada_resampled_10min_base.csv  # Dados processados para inferência
-│   └── status_operacional.csv        # Dados de operação normal para treino
-├── mlflow_artifacts_analyzer/
-├── mlruns/
-├── .gitignore
-├── analise_completa.py               # Script principal para inferência e análise
-├── config.yaml                       # Arquivo central de configuração
-├── dataprocessing.py                 # Script para processar os dados brutos
-├── model_autoencoder.py              # Definição da arquitetura do modelo
-├── train_anomaly_model.py            # Motor de treinamento do modelo
-└── README.md                         # Este arquivo
-
+- `Data/`
+  - `Aventa_AV7_IET_OST_SCADA.csv` *(Dados brutos, não versionado)*
+  - `scada_resampled_10min_base.csv` *(Dados processados para inferência)*
+  - `status_operacional.csv` *(Dados de operação normal para treino)*
+- `mlruns/` *(Pasta de logs do MLflow, geralmente ignorada pelo Git)*
+- `.gitignore`
+- `analise_completa.py`
+- `config.yaml`
+- `dataprocessing.py`
+- `model_autoencoder.py`
+- `train_anomaly_model.py`
+- `README.md`
 
 ---
 
