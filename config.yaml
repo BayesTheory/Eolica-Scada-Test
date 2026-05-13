@@ -1,8 +1,7 @@
-# config.yaml (v4.4 - Apontando para o Modelo Autoencoder Dedicado)
-
 # ======================================================================
 # SEÇÃO 1: CONFIGURAÇÕES GLOBAIS
 # ======================================================================
+MLFLOW_TRACKING_URI: "http://127.0.0.1:5000"
 INPUT_WINDOW_STEPS: 144
 CV_SPLITS: 4
 
@@ -36,7 +35,7 @@ MISSIONS:
   # --------------------------------------------------------------------
   power_forecasting:
     experiment_name: "Power Forecasting"
-    trainer_script: 'train_forecasting_model'
+    trainer_script: 'train_forecasting_mission' # <--- NOME NOVO E CORRIGIDO
     model_keys_to_run: ['1Arima', '2XGboosting', '3LSTM']
     model_params:
       '1Arima':
@@ -66,7 +65,7 @@ MISSIONS:
   # --------------------------------------------------------------------
   fault_detection:
     experiment_name: "Anomaly Detection by Reconstruction"
-    trainer_script: 'train_anomaly_model'
+    trainer_script: 'train_fault_detection_mission'
     
     # Lista de modelos que podem ser executados nesta missão.
     model_keys_to_run: ['3LSTM', '3LSTM_Autoencoder'] 
@@ -93,10 +92,10 @@ MISSIONS:
         features: ['WindSpeed', 'PowerOutput', 'PitchDeg', 'GeneratorTemperature', 'RotorSpeed']
         input_window_steps: 60
         params:
-          hidden_size: 32
-          n_layers: 2
+          hidden_size: 128
+          n_layers: 4
           dropout: 0.3
-          epochs: 20
+          epochs: 30
           batch_size: 64
           learning_rate: 0.001
         run_tags: { type: 'autoencoder', mission: 'anomaly_detection' }
