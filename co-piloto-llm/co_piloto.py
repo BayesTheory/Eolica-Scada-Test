@@ -8,7 +8,7 @@ import json
 # CONFIGURAÇÃO
 # ==============================================================================
 # Lembre-se de colocar sua chave da API do Google
-os.environ['GOOGLE_API_KEY'] = "AIzaSyC56Ar4m2V_H4VRNSW2M5SJoBr8iEH8I4w"
+os.environ['GOOGLE_API_KEY'] = "AIzaSyA-LljryCUDVFCD67nQsjZoZwzbgCHtmNQ"
 genai.configure(api_key=os.environ['GOOGLE_API_KEY'])
 
 API_URL = "http://127.0.0.1:8000"
