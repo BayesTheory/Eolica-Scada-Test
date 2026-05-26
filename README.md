@@ -1,73 +1,80 @@
-# Pipeline de Detecção de Anomalias em Turbinas Eólicas (Eolica Scada Test)
+# 🌬️ Co-piloto Eólico: Pipeline MLOps para Análise de Turbinas
 
-Este projeto implementa um pipeline de Machine Learning de ponta a ponta para analisar dados SCADA de turbinas eólicas. O objetivo principal é detectar anomalias operacionais e fornecer alertas preditivos, agindo como um "especialista" em saúde da turbina. A abordagem utiliza um Autoencoder com LSTMs para aprender a "assinatura de operação normal" e identificar desvios com base no erro de reconstrução.
+## Sobre o Projeto
 
----
+O **Co-piloto Eólico** é um sistema de ponta a ponta que utiliza Machine Learning e IA Generativa para monitorar a saúde e prever a performance de turbinas eólicas a partir de dados SCADA.
 
-## 🚀 Principais Funcionalidades
+O projeto implementa um pipeline MLOps completo, desde o processamento dos dados e treinamento de modelos até o deploy via API e a interação através de um assistente de IA conversacional inteligente.
 
-* **Detecção Preditiva de Anomalias:** O modelo é capaz de identificar sinais de alerta com horas de antecedência antes que uma falha oficial seja registrada no sistema.
-* **Pipeline de Dados Robusto:** Um script de pré-processamento (`dataprocessing.py`) limpa os dados brutos e gera datasets otimizados e consistentes para treinamento e inferência.
-* **Motor de Treino Profissional:** Utiliza as melhores práticas de MLOps, incluindo um carregador de dados eficiente em memória (`TimeSeriesDataset`), separação cronológica para evitar vazamento de dados, e técnicas de treino avançadas como `Early Stopping` e `AdamW`.
-* **Análise de Diagnóstico Completa:** Um script de inferência unificado (`INFERENCIA.py`) que valida o modelo, gera uma Matriz de Confusão, caça sinais precoces e plota visualizações detalhadas para análise de causa raiz.
-* **Versionamento com MLOps:** Integração total com **MLflow** para rastreamento de experimentos e registro de modelos, e **Git/Git LFS** para controle de versão do código e de grandes arquivos.
+## ✨ Principais Funcionalidades
 
----
+* **Detecção de Anomalias:** Utiliza um modelo **LSTM Autoencoder** treinado em PyTorch para identificar comportamentos anômalos na operação da turbina, analisando o erro de reconstrução dos dados.
+* **Previsão de Geração de Potência:** Emprega um modelo **XGBoost** para prever a geração de energia, permitindo um planejamento mais eficaz da operação e manutenção.
+* **Interface de IA Conversacional:** Permite que operadores consultem o status da turbina em linguagem natural através do **"Co-piloto Eólico"**, uma interface construída com a API do Google Gemini.
+* **Ciclo de Vida MLOps:** Gerencia todo o ciclo de vida dos modelos com **MLflow**, incluindo o registro de experimentos, artefatos (como scalers) e o versionamento dos modelos.
+* **API de Inferência:** Disponibiliza os modelos treinados através de uma **API FastAPI** robusta e otimizada, que serve como o "cérebro" para o Co-piloto.
 
-## 📁 Estrutura do Projeto
+## 🛠️ Stack Tecnológica
 
-.
-- `Data/`
-  - `Aventa_AV7_IET_OST_SCADA.csv` *(Dados brutos, não versionado)*
-  - `scada_resampled_10min_base.csv` *(Dados processados para inferência)*
-  - `status_operacional.csv` *(Dados de operação normal para treino)*
-- `mlruns/` *(Pasta de logs do MLflow, geralmente ignorada pelo Git)*
-- `.gitignore`
-- `analise_completa.py`
-- `config.yaml`
-- `dataprocessing.py`
-- `model_autoencoder.py`
-- `train_anomaly_model.py`
-- `README.md`
+* **Análise e Modelagem:** Python, Pandas, Scikit-learn, PyTorch, XGBoost
+* **MLOps:** MLflow
+* **API:** FastAPI, Uvicorn
+* **IA Generativa:** Google Gemini
+* **Orquestração:** Scripts Python para pipelines de dados e treinamento.
 
----
+## 🚀 Como Rodar o Sistema Completo
 
-## ⚙️ Instalação e Configuração
+Para executar o sistema, você precisará de 3 terminais rodando simultaneamente.
 
-1.  **Clone o repositório:**
-    ```bash
-    git clone [https://github.com/BayesTheory/Eolica-Scada-Test.git](https://github.com/BayesTheory/Eolica-Scada-Test.git)
-    cd Eolica-Scada-Test
-    ```
+### Pré-requisitos
+- Python 3.10+
+- Todas as bibliotecas instaladas a partir de um arquivo `requirements.txt` (sugestão).
+- Dados brutos (`Aventa_AV7_IET_OST_SCADA.csv`) na pasta `Data/`.
 
-2.  **Crie um ambiente virtual (recomendado):**
-    ```bash
-    python -m venv venv
-    # No Windows
-    .\venv\Scripts\activate
-    # No macOS/Linux
-    # source venv/bin/activate
-    ```
+### Etapa 1: Preparar os Dados e Treinar os Modelos
 
-3.  **Instale as dependências:**
-    Crie um arquivo `requirements.txt` com o conteúdo abaixo e rode o comando `pip install`.
+Se esta for a primeira execução, processe os dados e treine os modelos.
 
-    **`requirements.txt`:**
-    ```
-    pandas
-    numpy
-    torch
-    scikit-learn
-    mlflow
-    matplotlib
-    seaborn
-    pyyaml
-    ```
+```bash
+# 1. Processar os dados
+python main.py process_data
 
-    **Comando de instalação:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+# 2. Treinar o modelo de detecção de falhas (LSTM Autoencoder)
+python main.py train fault_detection 3LSTM_Autoencoder
 
----
+# 3. Treinar o modelo de previsão de potência (XGBoost)
+python main.py train power_forecasting 2XGboosting
+```
 
+### Etapa 2: Executar os Serviços em Produção
+
+**Terminal 1 - Servidor de Modelos (MLflow):**
+Este terminal serve o banco de dados de modelos que a API irá consultar.
+```bash
+mlflow ui
+```
+
+**Terminal 2 - Servidor da API:**
+Este terminal carrega os modelos do MLflow e os expõe através de endpoints.
+```bash
+uvicorn inference_api:app --reload
+```
+
+**Terminal 3 - Co-piloto Eólico (Cliente):**
+Este é o terminal com o qual você irá interagir.
+```bash
+python co_piloto.py
+```
+
+Após iniciar, faça perguntas como: `Qual o status da turbina para o dia 2022-02-07?`
+
+## Arquitetura do Sistema
+
+O fluxo de informação ocorre da seguinte maneira:
+
+1.  O **Usuário** faz uma pergunta em linguagem natural no script `co_piloto.py`.
+2.  O **Google Gemini** interpreta a pergunta e aciona a ferramenta `gerar_relatorio_diario`.
+3.  A ferramenta faz uma requisição HTTP para a **API FastAPI** (`inference_api.py`).
+4.  A API utiliza os especialistas (`AnomalyAnalyzer` e `Forecaster`), que carregam os **modelos do MLflow** para processar a solicitação.
+5.  A API retorna um relatório estruturado (JSON) para o Co-piloto.
+6.  O **Google Gemini** recebe o JSON e o traduz em uma resposta formatada e inteligente para o usuário, seguindo as regras de negócio definidas no prompt.
