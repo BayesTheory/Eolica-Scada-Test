@@ -1,4 +1,4 @@
-# 🌬️ Co-piloto Eólico: Pipeline MLOps para Análise de Turbinas
+# 💨💡 Co-piloto Eólico: Pipeline MLOps para Análise de Turbinas
 
 ## Sobre o Projeto
 
