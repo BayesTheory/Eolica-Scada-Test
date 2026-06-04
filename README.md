@@ -15,9 +15,9 @@ O projeto implementa um pipeline MLOps completo, desde o processamento dos dados
 * **API de Inferência:** Disponibiliza os modelos treinados através de uma **API FastAPI** robusta e otimizada, que serve como o "cérebro" para o Co-piloto.
 
 ![Project Banner](https://github.com/BayesTheory/Eolica-Scada-Test/blob/main/testes/grafico_alerta_precoce.png)
-*(Note: Please update the image link to a valid one for it to display correctly)*
+*(Note: Grafíco de alerta precoce com LSTM)*
 ![Project Banner](https://github.com/BayesTheory/Eolica-Scada-Test/blob/main/testes/658fad48-f70d-4b44-b367-f93993eac5ce.png)
-*(Note: Please update the image link to a valid one for it to display correctly)*
+*(Note: Grafico de geração de energia)*
 ## 🛠️ Stack Tecnológica
 
 * **Análise e Modelagem:** Python, Pandas, Scikit-learn, PyTorch, XGBoost
