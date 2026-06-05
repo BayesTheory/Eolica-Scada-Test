@@ -1,0 +1,37 @@
+# O contexto de build deve conter código e metadados, nada mais.
+.git/
+.github/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage*
+
+# Dados: só sample e metadados entram na imagem (ver Dockerfile).
+data/raw/
+data/interim/
+data/processed/
+data/external/
+
+# Artefatos de ML nunca vão para dentro da imagem.
+mlruns/
+mlartifacts/
+mlflow_artifacts*/
+*.pkl
+*.pth
+*.onnx
+
+notebooks/
+docs/
+tests/
+scripts/
+*.md
+!README.md
+.env
+.env.*
+!.env.example
+docker-compose*.yml

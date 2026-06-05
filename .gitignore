@@ -1,0 +1,132 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Segredos — NUNCA versionar. Use .env (ignorado) a partir de .env.example.
+# ─────────────────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+service-account*.json
+secrets/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Python
+# ─────────────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib60w/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Ambientes virtuais
+.venv/
+venv/
+ENV/
+env/
+.python-version
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Testes / qualidade
+# ─────────────────────────────────────────────────────────────────────────────
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.hypothesis/
+.tox/
+.nox/
+junit*.xml
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MLOps — artefatos e tracking são OUTPUT, não código-fonte.
+# Rodar `mlflow server` localmente gera milhares de arquivos: nunca commitar.
+# ─────────────────────────────────────────────────────────────────────────────
+mlruns/
+mlartifacts/
+mlflow_artifacts*/
+artifacts/
+outputs/
+lightning_logs/
+wandb/
+*.pkl
+*.joblib
+*.pth
+*.pt
+*.onnx
+*.ckpt
+*.h5
+*.safetensors
+mlflow.db
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dados — o dataset bruto vem do Zenodo, os derivados são gerados pelo pipeline.
+# Só o sample pequeno (usado por testes e pelo modo demo) é versionado.
+# ─────────────────────────────────────────────────────────────────────────────
+data/raw/
+data/interim/
+data/processed/
+data/external/
+*.csv
+*.parquet
+*.feather
+!data/samples/*.csv
+!data/metadata/*.csv
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Notebooks
+# ─────────────────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# ─────────────────────────────────────────────────────────────────────────────
+# IDE / SO
+# ─────────────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Claude Code — instruções do projeto (CLAUDE.md) SÃO versionadas.
+# Só o estado local da sessão fica de fora.
+# ─────────────────────────────────────────────────────────────────────────────
+.claude/settings.local.json
+.claude/state/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Infra local
+# ─────────────────────────────────────────────────────────────────────────────
+docker-compose.override.yml
+.docker/
+*.log
+logs/
+prometheus_data/
+grafana_data/
