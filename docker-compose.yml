@@ -1,0 +1,65 @@
+# Stack local completa: API, MLflow, Prometheus.
+#
+# `docker compose up` sobe tudo. A API sobe com o sample versionado se o
+# dataset processado não existir — e diz isso no log, em vez de estourar.
+
+name: eolica-scada
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      EOLICA_ENVIRONMENT: local
+      EOLICA_LOG_FORMAT: json
+      EOLICA_MLFLOW_TRACKING_URI: http://mlflow:5000
+      # Dentro do container os dados vêm do volume montado abaixo.
+      EOLICA_DATA_PATH: /app/data/processed/scada_resampled_10min_base.csv
+      EOLICA_SAMPLE_DATA_PATH: /app/data/samples/scada_sample.csv
+    volumes:
+      # Somente leitura: a API não escreve dado nenhum.
+      - ./data:/app/data:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2).status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.19.0
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
+    ports:
+      - "5000:5000"
+    volumes:
+      # Volume nomeado, não bind-mount: no v1 o `mlruns/` acabou versionado no
+      # git — 1.216 arquivos e 34 MB de tracking dentro do repositório.
+      - mlflow_data:/mlflow
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  mlflow_data:
+  prometheus_data:
