@@ -1,0 +1,187 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: "1"
+  FORCE_COLOR: "1"
+
+jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Lint e tipos — falham rápido e barato, antes de qualquer teste.
+  # ───────────────────────────────────────────────────────────────────────────
+  quality:
+    name: lint + tipos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Instalar dependências
+        run: uv pip install --system -e ".[dev]"
+
+      - name: Ruff (lint)
+        run: ruff check --output-format=github .
+
+      - name: Ruff (formatação)
+        run: ruff format --check .
+
+      - name: Mypy (estrito)
+        run: mypy
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Arquitetura — as setas de dependência do DDD apontam para dentro?
+  # Roda como job próprio para que a violação apareça nomeada no PR, em vez de
+  # se perder no meio de 165 testes.
+  # ───────────────────────────────────────────────────────────────────────────
+  architecture:
+    name: regras de arquitetura
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv pip install --system -e ".[dev]"
+      - name: Camadas e ausência de segredos
+        run: pytest tests/architecture -v
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Testes — matriz de versões suportadas.
+  # ───────────────────────────────────────────────────────────────────────────
+  tests:
+    name: testes (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Instalar dependências
+        run: uv pip install --system --python ${{ matrix.python }} -e ".[dev]"
+
+      - name: Suíte completa com cobertura
+        run: |
+          pytest \
+            --cov=src/eolica \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --junitxml=junit.xml
+
+      - name: Cobertura mínima do domínio
+        # O domínio é onde mora a regra de negócio: 95% não é aspiração, é
+        # piso. As camadas externas têm alvo menor por serem I/O.
+        run: |
+          coverage report \
+            --include="src/eolica/domain/*" \
+            --fail-under=95
+
+      - name: Publicar resultados
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-py${{ matrix.python }}
+          path: |
+            junit.xml
+            coverage.xml
+          retention-days: 7
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Segurança — dependências e código.
+  # ───────────────────────────────────────────────────────────────────────────
+  security:
+    name: segurança
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Histórico completo: o scan de segredo precisa comparar commits.
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Instalar ferramentas
+        run: uv pip install --system pip-audit
+
+      - name: Vulnerabilidades conhecidas nas dependências
+        run: pip-audit --strict --desc
+
+      - name: Varredura de segredos no histórico
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Docker — a imagem builda e o container responde ao probe?
+  # Buildar sem subir provaria metade do que interessa.
+  # ───────────────────────────────────────────────────────────────────────────
+  docker:
+    name: imagem e smoke test
+    runs-on: ubuntu-latest
+    needs: [quality, tests]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/api.Dockerfile
+          push: false
+          load: true
+          tags: eolica-scada:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Subir o container
+        run: |
+          docker run -d --name eolica -p 8000:8000 \
+            -e EOLICA_ENVIRONMENT=ci \
+            -e EOLICA_HEALTH_WINDOW_SIZE=12 \
+            eolica-scada:ci
+
+      - name: Esperar ficar pronto
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health/ready > /dev/null; then
+              echo "pronto na tentativa $attempt"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "não ficou pronto a tempo"
+          docker logs eolica
+          exit 1
+
+      - name: Smoke — o relatório diário responde
+        run: |
+          curl -fsS http://localhost:8000/api/v1/reports/2022-01-20 | tee /tmp/report.json
+          python -c "import json,sys; d=json.load(open('/tmp/report.json')); assert d['health']['status'] in {'OK','ALERTA','EM_MANUTENCAO'}, d"
+
+      - name: Smoke — data inexistente devolve 404, não 500
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/v1/reports/2030-01-01)
+          test "$status" = "404" || { echo "esperava 404, veio $status"; exit 1; }
+
+      - name: Logs do container
+        if: always()
+        run: docker logs eolica
