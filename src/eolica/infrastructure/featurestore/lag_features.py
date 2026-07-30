@@ -59,6 +59,10 @@ class LagFeatureView:
         return self._feature_names
 
     @property
+    def source_columns(self) -> tuple[str, ...]:
+        return tuple(sorted(self.features))
+
+    @property
     def required_history(self) -> int:
         """Observações mínimas para montar um vetor de inferência."""
         return self.n_lags
