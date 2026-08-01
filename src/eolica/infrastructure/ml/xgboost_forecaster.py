@@ -14,7 +14,7 @@ import xgboost as xgb
 
 from eolica.domain.forecasting import Horizon, PowerForecast
 from eolica.domain.turbine import PowerKw
-from eolica.infrastructure.featurestore import LagFeatureView
+from eolica.infrastructure.featurestore import FeatureView
 from eolica.shared.errors import ConfigurationError
 
 if TYPE_CHECKING:
@@ -28,7 +28,10 @@ class XGBoostPowerForecaster:
         self,
         *,
         booster: xgb.XGBRegressor,
-        view: LagFeatureView,
+        # `FeatureView` e não `LagFeatureView`: o previsor aceita qualquer
+        # composição de features — lag, janela móvel ou as duas juntas — desde
+        # que a assinatura bata com a do treino.
+        view: FeatureView,
         version: str = "xgboost@local",
         trained_signature: str | None = None,
     ) -> None:
@@ -65,7 +68,7 @@ class XGBoostPowerForecaster:
 
     def predict(self, window: ReadingWindow, horizon: Horizon) -> PowerForecast:
         """Prevê a potência no passo seguinte ao fim da janela."""
-        history = _window_to_frame(window, self._view.features)
+        history = _window_to_frame(window, self._view.source_columns)
         features = self._view.build_inference_vector(history)
         prediction = float(self._booster.predict(features)[0])
 
