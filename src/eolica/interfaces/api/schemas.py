@@ -11,7 +11,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from eolica.application.use_cases import DailyReport
+from eolica.application.use_cases import CoverageSummary, DailyReport
 from eolica.domain.health import HealthStatus
 from eolica.domain.monitoring import DriftReport, DriftSeverity
 
@@ -231,6 +231,65 @@ class DriftResponse(BaseModel):
                     severity=score.severity,
                 )
                 for name, score in sorted(report.scores.items(), key=lambda item: -item[1].value)
+            ],
+        )
+
+
+class DayCoverageEntry(BaseModel):
+    """Cobertura de telemetria de um dia."""
+
+    model_config = ConfigDict(frozen=True)
+
+    day: date
+    readings: int
+    expected_readings: int
+    completeness: float = Field(ge=0.0, le=1.0)
+    segments: int = Field(description="Trechos contíguos. >1 indica descontinuidade no dia.")
+    longest_segment: int
+    faulted_readings: int
+    is_fragmented: bool
+    is_absent: bool = Field(
+        description="Dia sem nenhuma leitura — distinto de fragmentado, aqui não há o que analisar"
+    )
+
+
+class CoverageTimelineResponse(BaseModel):
+    """Cobertura dia a dia num período.
+
+    É a visão que torna a fragmentação da série visível ao longo de semanas —
+    a informação que o v1 não expunha em lugar nenhum.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    start: date
+    end: date
+    mean_completeness: float = Field(ge=0.0, le=1.0)
+    fragmented_days: int
+    absent_days: int
+    days: list[DayCoverageEntry]
+
+    @classmethod
+    def from_domain(cls, summary: CoverageSummary) -> CoverageTimelineResponse:
+        return cls(
+            start=summary.start,
+            end=summary.end,
+            mean_completeness=summary.mean_completeness,
+            fragmented_days=summary.fragmented_days,
+            absent_days=summary.absent_days,
+            days=[
+                DayCoverageEntry(
+                    day=day.day,
+                    readings=day.readings,
+                    expected_readings=day.expected_readings,
+                    completeness=day.completeness,
+                    segments=day.segments,
+                    longest_segment=day.longest_segment,
+                    faulted_readings=day.faulted_readings,
+                    is_fragmented=day.is_fragmented,
+                    is_absent=day.is_absent,
+                )
+                for day in summary.days
             ],
         )
 

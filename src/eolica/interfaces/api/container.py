@@ -19,7 +19,12 @@ import time
 from dataclasses import dataclass, field
 from datetime import timedelta
 
-from eolica.application.use_cases import BacktestDetector, CheckDrift, GenerateDailyReport
+from eolica.application.use_cases import (
+    BacktestDetector,
+    CheckDrift,
+    GenerateDailyReport,
+    SummariseCoverage,
+)
 from eolica.domain.forecasting import Horizon, PowerForecastModel
 from eolica.domain.health import AnomalyThreshold, ReconstructionError, ReconstructionModel
 from eolica.infrastructure.config import Settings
@@ -82,6 +87,9 @@ class Container:
             bins=self.settings.drift_bins,
             window_days=self.settings.drift_reference_days,
         )
+
+    def coverage_use_case(self) -> SummariseCoverage:
+        return SummariseCoverage(readings=self.repository, sampling_interval=self.sampling_interval)
 
     def backtest_use_case(self) -> BacktestDetector:
         return BacktestDetector(

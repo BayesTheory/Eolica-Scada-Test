@@ -5,11 +5,11 @@ from __future__ import annotations
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, Path, Query
 
 from eolica.interfaces.api.container import Container
 from eolica.interfaces.api.dependencies import get_container
-from eolica.interfaces.api.schemas import DailyReportResponse
+from eolica.interfaces.api.schemas import CoverageTimelineResponse, DailyReportResponse
 
 router = APIRouter(prefix="/api/v1", tags=["relatórios"])
 
@@ -40,3 +40,29 @@ def daily_report(
     """
     report = container.daily_report_use_case().execute(report_date)
     return DailyReportResponse.from_domain(report)
+
+
+@router.get(
+    "/coverage",
+    response_model=CoverageTimelineResponse,
+    summary="Cobertura de telemetria dia a dia",
+    responses={400: {"description": "Período inválido ou maior que o máximo permitido"}},
+)
+def coverage_timeline(
+    container: Annotated[Container, Depends(get_container)],
+    start: Annotated[
+        date | None, Query(description="Início do período (padrão: início do acervo)")
+    ] = None,
+    end: Annotated[date | None, Query(description="Fim do período (padrão: fim do acervo)")] = None,
+) -> CoverageTimelineResponse:
+    """Fração de cada dia com medição, e em quantos trechos contíguos ela vem.
+
+    Não roda modelo nenhum — é varredura de índice, e responde em milissegundos
+    mesmo cobrindo o acervo inteiro.
+
+    É a visão que torna a fragmentação da série visível: ver que 2022-01-20 tem
+    43,8% de cobertura é útil, ver que dezenas de dias têm o mesmo problema é o
+    que muda a leitura de todos os vereditos do sistema.
+    """
+    summary = container.coverage_use_case().execute(start=start, end=end)
+    return CoverageTimelineResponse.from_domain(summary)

@@ -7,12 +7,20 @@ from eolica.application.use_cases.generate_daily_report import (
     DataCoverage,
     GenerateDailyReport,
 )
+from eolica.application.use_cases.summarise_coverage import (
+    CoverageSummary,
+    DayCoverage,
+    SummariseCoverage,
+)
 
 __all__ = [
     "BacktestDetector",
     "BacktestSummary",
     "CheckDrift",
+    "CoverageSummary",
     "DailyReport",
     "DataCoverage",
+    "DayCoverage",
     "GenerateDailyReport",
+    "SummariseCoverage",
 ]
