@@ -23,14 +23,19 @@ uma credencial permanente seria trocar um erro por outro.
 
 Exige suas credenciais, então roda na sua máquina.
 
-Os valores vivem no `.env` (gitignored), não neste documento — o repositório é
-público, e identificador de projeto não é credencial mas também não precisa ser
-indexado. Copie de `.env.example` e preencha:
+Os valores vivem em `.env.deploy` (gitignored), não neste documento — o
+repositório é público, e identificador de projeto não é credencial mas também
+não precisa ser indexado.
 
 ```bash
-cp .env.example .env
-# edite as quatro variáveis da seção "provisionamento GCP"
+cp .env.deploy.example .env.deploy
+# preencha as quatro variáveis
 ```
+
+> Arquivo separado do `.env`, e não por organização: `Settings` usa
+> `extra="forbid"`, então uma chave desconhecida no `.env` derruba a aplicação
+> na inicialização. São planos de configuração distintos — runtime da aplicação
+> versus provisionamento de infraestrutura — e misturá-los quebra o primeiro.
 
 Depois:
 

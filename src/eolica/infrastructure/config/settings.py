@@ -21,7 +21,34 @@ from typing import Literal
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PROJECT_ROOT = Path(__file__).resolve().parents[4]
+_MARKERS = ("pyproject.toml", "data/samples")
+
+
+def _discover_project_root() -> Path:
+    """Encontra a raiz do projeto, ou cai no diretório de trabalho.
+
+    A versão anterior era `Path(__file__).resolve().parents[4]`, o que funciona
+    num checkout de código-fonte e produz lixo em qualquer outro lugar: num
+    pacote instalado o caminho vira `/opt/venv/lib/python3.11`, e os defaults de
+    dados apontam para um diretório que não existe.
+
+    O sintoma foi o container subir e morrer no `lifespan` com
+    "Nem o dataset processado nem o sample foram encontrados", listando caminhos
+    dentro do site-packages. Nenhum teste local pegaria — todos rodam a partir
+    do checkout, onde a conta de `parents` acerta por acaso.
+
+    Aqui a raiz é procurada por marcador, subindo a partir do módulo, e o
+    fallback é o diretório de trabalho — que num container é o `WORKDIR`, onde
+    os dados de fato estão. Em produção os caminhos vêm de variável de ambiente
+    de qualquer forma; isto é o default sensato para quando não vêm.
+    """
+    for candidate in Path(__file__).resolve().parents:
+        if any((candidate / marker).exists() for marker in _MARKERS):
+            return candidate
+    return Path.cwd()
+
+
+PROJECT_ROOT = _discover_project_root()
 
 
 class Settings(BaseSettings):
@@ -84,6 +111,12 @@ class Settings(BaseSettings):
     # ── API ──────────────────────────────────────────────────────────────────
     api_host: str = "0.0.0.0"  # noqa: S104 — em container, o bind precisa ser amplo
     api_port: int = Field(default=8000, ge=1, le=65535)
+    """Porta do `eolica serve` em desenvolvimento.
+
+    Não é a do container: lá o Cloud Run injeta `$PORT` (8080 por default) e o
+    entrypoint o respeita. O compose publica 8000 no host apontando para 8080 no
+    container, então o endereço de desenvolvimento é o mesmo nos dois modos.
+    """
     cors_allowed_origins: tuple[str, ...] = ()
     """Vazio por padrão — e deve continuar vazio.
 
@@ -93,7 +126,10 @@ class Settings(BaseSettings):
 
     enable_metrics: bool = True
     serve_frontend: bool = True
-    """Serve `frontend/dist` quando ele existe. Desligue no container de treino."""
+    """Serve o build do frontend quando ele existe. Desligue no container de treino."""
+
+    frontend_dir: Path = PROJECT_ROOT / "frontend" / "dist"
+    """Onde está o build. Explícito no container, descoberto em desenvolvimento."""
 
     # ── co-piloto (opcional, desligado por padrão) ───────────────────────────
     copilot_enabled: bool = False

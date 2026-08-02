@@ -50,6 +50,25 @@ typecheck: ## Mypy estrito
 
 check: lint typecheck test ## Tudo que o CI roda, localmente
 
+# O ambiente de desenvolvimento tem o extra [ml]; o CI não. Isso já causou dois
+# falsos verdes: mypy passava aqui e falhava lá, porque com torch instalado
+# `nn.Module` tem tipo real e sem ele vira `Any`.
+#
+# Este alvo cria um venv idêntico ao do CI e roda os mesmos gates nele.
+CI_PYTHON := .venv-ci/bin/python
+ifeq ($(OS),Windows_NT)
+	CI_PYTHON := .venv-ci/Scripts/python.exe
+endif
+
+check-ci: ## Roda os gates num ambiente idêntico ao do CI (sem o extra [ml])
+	uv venv .venv-ci --python 3.11
+	uv pip install --python $(CI_PYTHON) -e ".[dev]"
+	$(CI_PYTHON) -m ruff check .
+	$(CI_PYTHON) -m ruff format --check .
+	$(CI_PYTHON) -m mypy
+	$(CI_PYTHON) -m pytest -q
+	@echo "gates do CI verdes no ambiente do CI"
+
 # ── operação ─────────────────────────────────────────────────────────────────
 serve: ## Sobe a API em modo desenvolvimento
 	$(PYTHON) -m eolica.interfaces.cli.main serve --reload

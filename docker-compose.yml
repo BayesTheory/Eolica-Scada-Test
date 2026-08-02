@@ -11,7 +11,10 @@ services:
       context: .
       dockerfile: docker/api.Dockerfile
     ports:
-      - "8000:8000"
+      # 8000 no host, 8080 no container — a imagem escuta em 8080, que é o
+      # default do Cloud Run. Manter os dois lados iguais aqui e diferentes lá
+      # seria pedir para descobrir a diferença só no deploy.
+      - "8000:8080"
     environment:
       EOLICA_ENVIRONMENT: local
       EOLICA_LOG_FORMAT: json
@@ -23,7 +26,7 @@ services:
       # Somente leitura: a API não escreve dado nenhum.
       - ./data:/app/data:ro
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2).status==200 else 1)"]
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/health/ready', timeout=2).status==200 else 1)"]
       interval: 15s
       timeout: 5s
       retries: 5

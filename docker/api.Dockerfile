@@ -48,11 +48,18 @@ RUN /opt/venv/bin/pip install --no-deps .
 # ─────────────────────────────────────────────────────────────────────────────
 FROM python:3.11-slim-bookworm AS runtime
 
+# Caminhos explícitos, e não herdados da descoberta de raiz do projeto. Num
+# pacote instalado o módulo vive em site-packages, longe dos dados — e confiar
+# em heurística de caminho foi exatamente o que fez o container subir e morrer
+# no lifespan procurando dados em `/opt/venv/lib/python3.11/data/`.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH" \
     EOLICA_ENVIRONMENT=production \
     EOLICA_LOG_FORMAT=json \
+    EOLICA_DATA_PATH=/app/data/processed/scada_resampled_10min_base.csv \
+    EOLICA_SAMPLE_DATA_PATH=/app/data/samples/scada_sample.csv \
+    EOLICA_FRONTEND_DIR=/app/frontend/dist \
     PORT=8080
 
 RUN groupadd --system --gid 1001 eolica \

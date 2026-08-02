@@ -24,6 +24,12 @@ from eolica.infrastructure.config import PROJECT_ROOT
 logger = logging.getLogger(__name__)
 
 DEFAULT_BUILD_DIR = PROJECT_ROOT / "frontend" / "dist"
+"""Onde procurar o build.
+
+Pode ser sobrescrito por `EOLICA_FRONTEND_DIR`. Num container o pacote está em
+site-packages e a descoberta de raiz cai no `WORKDIR`, então o default acerta —
+mas apontar explicitamente é mais barato de depurar que confiar em heurística.
+"""
 
 # Prefixos reservados à API. Uma rota do frontend nunca pode sombreá-los.
 API_PREFIXES = ("/api", "/health", "/metrics", "/docs", "/redoc", "/openapi.json")

@@ -4,6 +4,7 @@
 .env
 .env.*
 !.env.example
+!.env.deploy.example
 *.pem
 *.key
 credentials.json
@@ -37,6 +38,7 @@ MANIFEST
 
 # Ambientes virtuais
 .venv/
+.venv-*/
 venv/
 ENV/
 env/

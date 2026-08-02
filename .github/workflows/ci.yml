@@ -24,6 +24,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # `setup-python` antes do uv não é redundante: sem ele, `uv pip install
+      # --system` mira o Python do sistema do runner, que no Ubuntu é
+      # externally-managed (PEP 668) e recusa instalação. Era a causa de todos
+      # os jobs Python falharem em segundos, antes de rodar qualquer coisa.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -50,6 +58,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -70,12 +81,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
+      # `--system` e `--python` juntos são contraditórios e o uv aborta. Quem
+      # escolhe a versão é o `setup-python` acima; aqui só se instala nela.
       - name: Instalar dependências
-        run: uv pip install --system --python ${{ matrix.python }} -e ".[dev]"
+        run: uv pip install --system -e ".[dev]"
 
       - name: Suíte completa com cobertura
         run: |
@@ -150,6 +167,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -172,13 +192,40 @@ jobs:
           # Histórico completo: o scan de segredo precisa comparar commits.
           fetch-depth: 0
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - uses: astral-sh/setup-uv@v5
 
-      - name: Instalar ferramentas
-        run: uv pip install --system pip-audit
+      # As dependências do projeto PRECISAM estar instaladas antes do audit.
+      # Sem isto, o pip-audit varre apenas o ambiente do runner e as próprias
+      # dependências dele — e reporta "0 vulnerabilidades" sem nunca ter olhado
+      # pandas, fastapi, pydantic ou torch. Um scanner que audita a si mesmo é
+      # pior que nenhum: passa a dar garantia falsa.
+      - name: Instalar o projeto e as ferramentas
+        run: |
+          uv pip install --system -e ".[dev]"
+          uv pip install --system pip-audit
 
+      # Guarda contra o scanner voltar a auditar o ambiente errado sem que
+      # ninguém perceba — um audit verde sobre o escopo errado é pior que
+      # nenhum audit, porque dá garantia falsa.
+      - name: Confirmar que o audit enxerga as dependências do projeto
+        run: |
+          pip-audit --format=json --progress-spinner=off --skip-editable > audit.json || true
+          python -c "import json,sys; d=json.load(open('audit.json')); n={x['name'].lower() for x in d.get('dependencies',[])}; m={'pandas','fastapi','pydantic','numpy'}-n; sys.exit('audit fora de escopo, nao viu: '+', '.join(sorted(m))) if m else print('ok:',len(n),'pacotes auditados')"
+
+      # Sem `--strict`, e com motivo: `--strict` falha em qualquer dependência
+      # que o audit não consiga resolver — o que inclui `eolica-scada`, que é o
+      # próprio projeto, instalado como editable e ausente do PyPI por
+      # definição. Nenhuma combinação de flags faz `--strict` conviver com isso.
+      #
+      # A garantia que `--strict` deveria dar ("não passe verde sem ter olhado
+      # de verdade") é entregue pelo passo acima, que verifica o escopo de forma
+      # explícita em vez de inferir por ausência de erro.
       - name: Vulnerabilidades conhecidas nas dependências
-        run: pip-audit --strict --desc
+        run: pip-audit --desc --skip-editable --progress-spinner=off
 
       - name: Varredura de segredos no histórico
         uses: gitleaks/gitleaks-action@v2
@@ -209,9 +256,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # A imagem escuta em 8080 (default do Cloud Run) e respeita $PORT. O
+      # mapeamento estava em 8000:8000 desde antes dessa mudança, então o host
+      # publicava uma porta em que nada escutava — 22 tentativas de curl com
+      # "connection reset" enquanto o container estava perfeitamente saudável.
+      #
+      # `$PORT` é passado explicitamente para que o valor apareça no comando, e
+      # não só no default da imagem: quem lê este passo consegue ver por que a
+      # porta da direita é 8080.
       - name: Subir o container
         run: |
-          docker run -d --name eolica -p 8000:8000 \
+          docker run -d --name eolica -p 8000:8080 \
+            -e PORT=8080 \
             -e EOLICA_ENVIRONMENT=ci \
             -e EOLICA_HEALTH_WINDOW_SIZE=12 \
             eolica-scada:ci
@@ -223,10 +279,27 @@ jobs:
               echo "pronto na tentativa $attempt"
               exit 0
             fi
+            # Se o container já morreu, esperar mais 58 segundos não ajuda.
+            if [ "$(docker inspect -f '{{.State.Running}}' eolica)" != "true" ]; then
+              echo "::error::o container parou de rodar"
+              break
+            fi
             sleep 2
           done
-          echo "não ficou pronto a tempo"
+
+          # Diagnóstico antes de desistir. Na primeira falha deste job, o
+          # container estava saudável e escutando — o que faltava era o
+          # mapeamento de portas, invisível sem isto aqui.
+          echo "::group::mapeamento de portas"
+          docker port eolica || echo "(nenhuma porta publicada)"
+          echo "::endgroup::"
+          echo "::group::estado do container"
+          docker inspect -f 'Running={{.State.Running}} ExitCode={{.State.ExitCode}} Health={{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}' eolica
+          echo "::endgroup::"
+          echo "::group::logs"
           docker logs eolica
+          echo "::endgroup::"
+          echo "::error::a aplicação não respondeu em http://localhost:8000/health/ready"
           exit 1
 
       - name: Smoke — o relatório diário responde

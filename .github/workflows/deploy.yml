@@ -28,9 +28,40 @@ env:
   REPOSITORY: eolica
 
 jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Só tenta deployar se o projeto foi provisionado.
+  #
+  # Sem esta guarda, todo push num repositório ainda não configurado produz um
+  # deploy vermelho — e um pipeline que falha sempre é um pipeline que ninguém
+  # olha. É a mesma fadiga de alarme que o detector deste projeto existe para
+  # evitar: quando tudo é alerta, nada é.
+  #
+  # `skipped` diz "não se aplica"; `failed` diz "algo quebrou". São informações
+  # diferentes e não podem ter a mesma cor.
+  # ───────────────────────────────────────────────────────────────────────────
+  preflight:
+    name: configuração presente?
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        run: |
+          if [ -n "${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}" ] \
+             && [ -n "${{ vars.GCP_PROJECT_ID }}" ] \
+             && [ -n "${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deploy habilitado::variáveis presentes"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deploy pulado::GCP ainda não provisionado. Rode ./scripts/setup-gcp.sh — ver docs/deploy-gcp.md"
+          fi
+
   deploy:
     name: build e deploy
     runs-on: ubuntu-latest
+    needs: preflight
+    if: needs.preflight.outputs.configured == 'true'
     environment: production
     steps:
       - uses: actions/checkout@v4

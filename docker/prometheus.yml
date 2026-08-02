@@ -6,6 +6,8 @@ scrape_configs:
   - job_name: eolica-api
     metrics_path: /metrics
     static_configs:
-      - targets: ["api:8000"]
+      # Porta interna do container, não a publicada no host: o Prometheus fala
+      # com a API pela rede do compose.
+      - targets: ["api:8080"]
         labels:
           service: eolica-scada

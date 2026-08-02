@@ -16,7 +16,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ENV_FILE="${ROOT}/.env"
+# Arquivo separado do `.env` de propósito: `Settings` usa `extra="forbid"` e
+# chave desconhecida ali derruba a aplicação na inicialização.
+ENV_FILE="${ROOT}/.env.deploy"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Saída
@@ -35,7 +37,8 @@ die()   { printf '\n%serro:%s %s\n' "$RED" "$OFF" "$1" >&2; exit 1; }
 # ─────────────────────────────────────────────────────────────────────────────
 # Configuração
 # ─────────────────────────────────────────────────────────────────────────────
-[ -f "$ENV_FILE" ] || die "$ENV_FILE não existe. Comece com: cp .env.example .env"
+[ -f "$ENV_FILE" ] \
+  || die "$ENV_FILE não existe. Comece com: cp .env.deploy.example .env.deploy"
 
 # `set -a` exporta tudo que o arquivo define; o subshell evita poluir o ambiente
 # do chamador com as variáveis EOLICA_ de runtime.

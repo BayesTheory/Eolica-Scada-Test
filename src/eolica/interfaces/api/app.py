@@ -95,6 +95,6 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
     # Por último: a rota catch-all da SPA precisa vir depois de todas as rotas
     # de API, senão sombrearia qualquer uma registrada em seguida.
     if resolved.serve_frontend:
-        mount_frontend(app)
+        mount_frontend(app, resolved.frontend_dir)
 
     return app
