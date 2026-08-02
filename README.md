@@ -168,27 +168,75 @@ Erros seguem [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457):
 | **Feature store com assinatura versionada** | Uma única implementação de lag. Um teste prova que treino e serving produzem o mesmo vetor, bit a bit. |
 | **`ReadingWindow` recusa janela furada** | A série tem 30 descontinuidades. Uma janela que atravessa um buraco produz erro de reconstrução alto — indistinguível de falha real. |
 | **Limiar calibrado no `lifespan`** | Calcular na primeira requisição faz o usuário pagar a varredura de 32 mil registros como latência, e cria estado mutável compartilhado. |
-| **Janela de persistência** | Num sinal de 10 em 10 minutos, um pico isolado é ruído de sensor. Seis janelas consecutivas = uma hora de desvio real. |
+| **Janela de persistência implementada — e medida** | Estava no config da v1 e nunca era lida. Implementada, ela é configurável e auditável. Se ela *ajuda* é outra pergunta: [ver o backtest abaixo](#o-que-a-medição-mostrou). |
 | **Baseline explícito (z-score, persistência)** | Sem régua, "MSE 0.003" não significa nada. E permite a API subir e ser testada sem GPU. |
+| **Gate de promoção contra baseline** | Modelo só é registrado se superar o baseline por margem mínima. A v1 chamava `register_model()` incondicionalmente após todo treino. |
 | **`torch`/`mlflow` em extra opcional** | O CI roda a suíte inteira em segundos. Quem quer treinar instala `[ml]`. |
 | **Erros tipados por camada** | Dia inexistente é 404, dia fragmentado é 422, registry fora é 503. Nenhum é 500. |
 | **Segredos só por `SecretStr`** | Sem default, sem `repr`, sem chegar perto do fonte. |
+
+## O que a medição mostrou
+
+O backtest (`eolica backtest`) varre o histórico inteiro — 65.738 leituras, 72
+segmentos contíguos, 61.239 janelas avaliadas — comparando valores de janela de
+persistência contra os períodos de falha reportados pelo próprio SCADA:
+
+| janela | episódios | precisão | recall | taxa de alarme falso |
+|---:|---:|---:|---:|---:|
+| 1 | 262 | 42,4% | 88,7% | 34,27% |
+| 3 | 256 | 42,4% | 88,7% | 34,25% |
+| 6 | 250 | 42,4% | 88,6% | 34,22% |
+| 12 | 238 | 42,3% | 88,2% | 34,11% |
+
+**A janela de persistência praticamente não muda nada aqui.** Passar de 1 para 6
+evita 25 janelas de alarme falso — em cerca de 16 mil — e custa 5 detecções.
+
+Esse é o resultado oposto ao que a intuição sugeria, e ele é a informação mais
+útil deste repositório. O que ele diz é que o problema não está no *debouncing*:
+está no detector. Uma taxa de alarme falso de 34% com precisão de 42% significa
+que o baseline z-score não separa bem operação normal de falha nesta série — e
+nenhum ajuste de persistência conserta isso.
+
+Duas ressalvas honestas sobre o número:
+
+- A referência é o código de status 13 do SCADA, que aparece **durante** a
+  falha, não antes. Um detector por reconstrução deveria alertar cedo, e a
+  recall medida assim subestima exatamente essa capacidade.
+- Uma janela de 60 passos conta como "evento" se qualquer uma das 10 horas
+  cobertas teve falha, o que infla os positivos da referência.
+
+O próximo passo é o LSTM autoencoder (`eolica.infrastructure.ml.training`)
+enfrentar esse mesmo backtest. Se ele não melhorar precisão e taxa de alarme
+falso de forma expressiva, o gate de promoção recusa registrá-lo — que é o
+comportamento correto.
 
 ## Testes
 
 ```console
 $ make test
-165 passed in 2.86s
+375 passed in 11.90s
 ```
 
 | Suíte | O que cobre | Tempo |
 |---|---|---|
-| `tests/unit/domain` | Regras de negócio puras | 0,6s |
-| `tests/unit/featurestore` | Ausência de skew treino/serving | 1,2s |
-| `tests/unit/application` | Casos de uso com fakes em memória | 0,5s |
-| `tests/contract` | Contrato de dado contra telemetria **real** | 1,2s |
-| `tests/integration` | API completa via `TestClient` | 3,2s |
-| `tests/architecture` | Setas de dependência + ausência de segredos | 0,7s |
+| `tests/unit/domain` | Regras de negócio puras | ~1s |
+| `tests/unit/featurestore` | Ausência de skew **e** de vazamento temporal | ~1s |
+| `tests/unit/application` | Casos de uso com fakes em memória | ~0,5s |
+| `tests/unit/ml` | Adaptadores torch e resolução no registry | ~5s |
+| `tests/contract` | Contrato de dado contra telemetria **real** | ~1s |
+| `tests/integration` | API completa via `TestClient` | ~3s |
+| `tests/architecture` | Setas de dependência + ausência de segredos | ~1s |
+
+Três testes carregam mais peso que os outros:
+
+- **`test_treino_e_serving_produzem_o_mesmo_vetor`** — compara, bit a bit, o
+  vetor de features das duas rotas para o mesmo instante alvo. Reintroduzir uma
+  segunda implementação de lag quebra o build.
+- **`test_alterar_o_futuro_nao_muda_nenhuma_feature_do_passado`** — reescreve
+  todo o futuro da série e exige que a matriz do passado não mude. É o que
+  impede `rolling().std()` de vazar o instante que se quer prever.
+- **`test_assinatura_divergente_recusa_servir`** — mudar `n_lags` sem retreinar
+  passa a derrubar o readiness probe em vez de degradar a previsão em silêncio.
 
 Os testes de contrato rodam sobre dado de verdade, escolhido justamente por
 conter o que dado sintético bem-comportado não tem: gaps, potência negativa e
