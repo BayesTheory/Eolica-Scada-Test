@@ -175,40 +175,79 @@ Erros seguem [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457):
 | **Erros tipados por camada** | Dia inexistente é 404, dia fragmentado é 422, registry fora é 503. Nenhum é 500. |
 | **Segredos só por `SecretStr`** | Sem default, sem `repr`, sem chegar perto do fonte. |
 
-## O que a medição mostrou
+## O que a medição mostrou — e o que ela consertou
 
-O backtest (`eolica backtest`) varre o histórico inteiro — 65.738 leituras, 72
-segmentos contíguos, 61.239 janelas avaliadas — comparando valores de janela de
-persistência contra os períodos de falha reportados pelo próprio SCADA:
+Esta seção é o miolo do projeto: uma medição derrubou uma hipótese, a hipótese
+derrubada apontou a causa real, e a correção mudou o sistema de inútil para
+utilizável. Reproduza tudo com `eolica backtest` e
+`python scripts/compare_detectors.py`.
 
-| janela | episódios | precisão | recall | taxa de alarme falso |
+### O detector, antes e depois
+
+Sobre o dataset completo — 65.738 leituras, 72 segmentos contíguos, 61.239
+janelas avaliadas, com os períodos de falha do SCADA como referência:
+
+| | z-score **global** | z-score **por regime** |
+|---|---:|---:|
+| Precisão | 42,4% | **98,8%** |
+| Recall | 88,7% | 57,4% |
+| **Taxa de alarme falso** | **34,27%** | **0,20%** |
+| F1 | 57,3% | 72,6% |
+| Episódios de alarme em 487 dias | 262 | 35 |
+
+Alarme falso caiu **171×**. Um alarme a cada dois dias virou um a cada duas
+semanas.
+
+**O custo é real:** recall caiu de 88,7% para 57,4% — o detector novo perde
+cerca de metade dos eventos que o antigo pegava. A troca é deliberada. Um
+detector que dispara em um terço dos períodos saudáveis é desligado pelo
+operador na primeira semana, e a partir daí seu recall efetivo é zero. 99% de
+precisão com 57% de recall é um ponto de operação em que alguém confia; o
+anterior não era.
+
+### Como se chegou lá
+
+**1. A hipótese inicial estava errada.** O `config.yaml` da v1 declarava
+`persistence_window: 6` sem nunca lê-lo, e o README desta reescrita afirmava que
+o parâmetro filtrava ruído de sensor. O backtest mostrou que não filtra nada:
+
+| janela | episódios | precisão | recall | alarme falso |
 |---:|---:|---:|---:|---:|
 | 1 | 262 | 42,4% | 88,7% | 34,27% |
-| 3 | 256 | 42,4% | 88,7% | 34,25% |
 | 6 | 250 | 42,4% | 88,6% | 34,22% |
 | 12 | 238 | 42,3% | 88,2% | 34,11% |
 
-**A janela de persistência praticamente não muda nada aqui.** Passar de 1 para 6
-evita 25 janelas de alarme falso — em cerca de 16 mil — e custa 5 detecções.
+**2. O resultado nulo apontou a causa.** Se aumentar a janela não ajuda, o erro
+não é feito de picos isolados — é ruído *sustentado*. Ruído sustentado tem uma
+explicação natural: o detector comparava cada janela contra a distribuição de
+**toda** a operação normal. Mas operar a 2 m/s e a 11 m/s são estados
+legitimamente diferentes da mesma máquina saudável. O erro estava medindo
+**vento**, não saúde — e como o vento varia o dia inteiro, ficava alto em blocos.
 
-Esse é o resultado oposto ao que a intuição sugeria, e ele é a informação mais
-útil deste repositório. O que ele diz é que o problema não está no *debouncing*:
-está no detector. Uma taxa de alarme falso de 34% com precisão de 42% significa
-que o baseline z-score não separa bem operação normal de falha nesta série — e
-nenhum ajuste de persistência conserta isso.
+**3. A correção.** [`OperatingRegime`](src/eolica/domain/turbine/regimes.py)
+particiona a operação pelo envelope declarado pelo fabricante (cut-in 2,0 m/s,
+cut-out 12,0 m/s), e o
+[detector](src/eolica/infrastructure/ml/regime_detector.py) calibra uma
+referência por regime. As fronteiras vêm da folha de dados e não de quantis
+dos dados: assim o regime significa a mesma coisa antes e depois de um retreino.
 
-Duas ressalvas honestas sobre o número:
+### Ressalvas honestas sobre o número
 
-- A referência é o código de status 13 do SCADA, que aparece **durante** a
-  falha, não antes. Um detector por reconstrução deveria alertar cedo, e a
-  recall medida assim subestima exatamente essa capacidade.
+- A referência é o código de status 13 do SCADA, que aparece **durante** a falha,
+  não antes. Um detector por reconstrução deveria alertar cedo, e a recall
+  medida assim subestima exatamente essa capacidade.
 - Uma janela de 60 passos conta como "evento" se qualquer uma das 10 horas
   cobertas teve falha, o que infla os positivos da referência.
+- O LSTM autoencoder ainda não enfrentou este backtest. O gate de promoção
+  recusa registrá-lo se não superar o baseline por margem — e agora o baseline
+  é bem mais difícil de bater.
 
-O próximo passo é o LSTM autoencoder (`eolica.infrastructure.ml.training`)
-enfrentar esse mesmo backtest. Se ele não melhorar precisão e taxa de alarme
-falso de forma expressiva, o gate de promoção recusa registrá-lo — que é o
-comportamento correto.
+## Medição anterior (mantida para registro)
+
+O primeiro backtest, com o detector global, está descrito acima em
+"Como se chegou lá". A tabela e a análise que motivaram a investigação
+seguem lá — não foram apagadas, porque o caminho até o resultado é a parte
+que vale.
 
 ## Testes
 
