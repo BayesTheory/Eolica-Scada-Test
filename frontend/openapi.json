@@ -1,0 +1,768 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Eólica SCADA",
+    "description": "\nMonitoramento preditivo de turbinas eólicas a partir de telemetria SCADA.\n\n**Detecção de anomalia** por erro de reconstrução, com janela de persistência\npara não alarmar em ruído de sensor. **Previsão de geração** para o passo\nseguinte. **Drift** entre a distribuição de referência e a recente.\n\nErros seguem RFC 9457 (`application/problem+json`).\n",
+    "version": "2.0.0"
+  },
+  "paths": {
+    "/health/live": {
+      "get": {
+        "tags": [
+          "operação"
+        ],
+        "summary": "Liveness probe",
+        "description": "O processo está de pé.\n\nDeliberadamente não toca em modelo, disco nem rede: uma dependência lenta\nnão pode fazer o orquestrador matar um processo que está perfeitamente vivo.",
+        "operationId": "liveness_health_live_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivenessResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "tags": [
+          "operação"
+        ],
+        "summary": "Readiness probe",
+        "description": "A aplicação consegue atender: dados carregados e detector calibrado.\n\nEnquanto o limiar não foi calculado, o serviço não recebe tráfego. No v1 o\nlimiar era calculado na primeira requisição do usuário — que pagava a\nvarredura de 32 mil registros como latência.",
+        "operationId": "readiness_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A aplicação não está pronta para receber tráfego"
+          }
+        }
+      }
+    },
+    "/api/v1/drift": {
+      "get": {
+        "tags": [
+          "operação",
+          "monitoramento"
+        ],
+        "summary": "Drift entre a distribuição de referência e a recente",
+        "description": "PSI por feature, com veredito agregado.\n\n`requires_action` só fica verdadeiro em drift severo (PSI > 0.25). Drift\nmoderado pede investigação — sazonalidade de vento move distribuição todo\ntrimestre sem que o modelo tenha piorado.",
+        "operationId": "drift_api_v1_drift_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriftResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Histórico insuficiente para comparar dois períodos"
+          }
+        }
+      }
+    },
+    "/api/v1/reports/{report_date}": {
+      "get": {
+        "tags": [
+          "relatórios"
+        ],
+        "summary": "Relatório diário de saúde e previsão",
+        "description": "Analisa um dia de telemetria e devolve saúde, cobertura e previsão.\n\nA data vai no path e é tipada como `date`: o FastAPI valida o formato antes\nde a requisição chegar aqui. No v1 a data era uma query string livre\n(`?data_string=...`) usada direto como chave de `.loc` num DataFrame — o que\nfazia `2022-02-31` e `; DROP` seguirem o mesmo caminho de código.\n\nTodo caminho de erro é tipado: dia inexistente é 404, dia fragmentado\ndemais é 422, registry fora do ar é 503. Nenhum deles é 500.",
+        "operationId": "daily_report_api_v1_reports__report_date__get",
+        "parameters": [
+          {
+            "name": "report_date",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Dia a analisar, em ISO-8601 (YYYY-MM-DD)",
+              "title": "Report Date"
+            },
+            "description": "Dia a analisar, em ISO-8601 (YYYY-MM-DD)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyReportResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A data não existe no acervo de telemetria"
+          },
+          "422": {
+            "description": "A data existe mas não há dado contíguo suficiente para analisar"
+          },
+          "503": {
+            "description": "Modelo ou fonte de dados indisponível"
+          }
+        }
+      }
+    },
+    "/api/v1/coverage": {
+      "get": {
+        "tags": [
+          "relatórios"
+        ],
+        "summary": "Cobertura de telemetria dia a dia",
+        "description": "Fração de cada dia com medição, e em quantos trechos contíguos ela vem.\n\nNão roda modelo nenhum — é varredura de índice, e responde em milissegundos\nmesmo cobrindo o acervo inteiro.\n\nÉ a visão que torna a fragmentação da série visível: ver que 2022-01-20 tem\n43,8% de cobertura é útil, ver que dezenas de dias têm o mesmo problema é o\nque muda a leitura de todos os vereditos do sistema.",
+        "operationId": "coverage_timeline_api_v1_coverage_get",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Início do período (padrão: início do acervo)",
+              "title": "Start"
+            },
+            "description": "Início do período (padrão: início do acervo)"
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Fim do período (padrão: fim do acervo)",
+              "title": "End"
+            },
+            "description": "Fim do período (padrão: fim do acervo)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverageTimelineResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Período inválido ou maior que o máximo permitido"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CoverageSection": {
+        "properties": {
+          "readings": {
+            "type": "integer",
+            "title": "Readings"
+          },
+          "expected_readings": {
+            "type": "integer",
+            "title": "Expected Readings"
+          },
+          "completeness": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Completeness",
+            "description": "Fração do dia com medição"
+          },
+          "analysed_segments": {
+            "type": "integer",
+            "title": "Analysed Segments",
+            "description": "Trechos contíguos analisados. >1 indica descontinuidade no dia."
+          },
+          "discarded_readings": {
+            "type": "integer",
+            "title": "Discarded Readings",
+            "description": "Leituras em trechos curtos demais para a janela do modelo"
+          },
+          "is_fragmented": {
+            "type": "boolean",
+            "title": "Is Fragmented"
+          }
+        },
+        "type": "object",
+        "required": [
+          "readings",
+          "expected_readings",
+          "completeness",
+          "analysed_segments",
+          "discarded_readings",
+          "is_fragmented"
+        ],
+        "title": "CoverageSection",
+        "description": "Quanto do dia foi efetivamente analisado."
+      },
+      "CoverageTimelineResponse": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "format": "date",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date",
+            "title": "End"
+          },
+          "mean_completeness": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Mean Completeness"
+          },
+          "fragmented_days": {
+            "type": "integer",
+            "title": "Fragmented Days"
+          },
+          "absent_days": {
+            "type": "integer",
+            "title": "Absent Days"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/DayCoverageEntry"
+            },
+            "type": "array",
+            "title": "Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "mean_completeness",
+          "fragmented_days",
+          "absent_days",
+          "days"
+        ],
+        "title": "CoverageTimelineResponse",
+        "description": "Cobertura dia a dia num período.\n\nÉ a visão que torna a fragmentação da série visível ao longo de semanas —\na informação que o v1 não expunha em lugar nenhum."
+      },
+      "DailyReportResponse": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date",
+            "title": "Day"
+          },
+          "health": {
+            "$ref": "#/components/schemas/HealthSection"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/CoverageSection"
+          },
+          "forecast": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ForecastSection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "forecast_unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Unavailable Reason",
+            "description": "Motivo da ausência de previsão. O v1 colocava a string 'Indisponível' dentro do campo numérico, quebrando o tipo."
+          },
+          "data_range": {
+            "$ref": "#/components/schemas/DataRange"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "health",
+          "coverage",
+          "data_range"
+        ],
+        "title": "DailyReportResponse",
+        "description": "Relatório diário completo.",
+        "example": {
+          "coverage": {
+            "analysed_segments": 1,
+            "completeness": 1.0,
+            "discarded_readings": 0,
+            "expected_readings": 144,
+            "is_fragmented": false,
+            "readings": 144
+          },
+          "data_range": {
+            "end": "2022-01-27T23:50:00Z",
+            "start": "2022-01-14T00:00:00Z"
+          },
+          "day": "2022-01-20",
+          "forecast": {
+            "model_version": "persistence-baseline@1",
+            "power_kw": 0.0,
+            "power_kw_measured": -0.02,
+            "target_time": "2022-01-21T00:00:00Z"
+          },
+          "health": {
+            "evaluated_windows": 85,
+            "exceedances": 0,
+            "persistence_window": 6,
+            "previous_period_anomalies": 0,
+            "previous_period_known": true,
+            "reason": "Nenhuma janela acima do limiar.",
+            "status": "OK",
+            "sustained_anomalies": 0,
+            "threshold": {
+              "method": "percentile",
+              "parameter": 99.5,
+              "value": 3.21
+            }
+          }
+        }
+      },
+      "DataRange": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "DataRange",
+        "description": "Janela temporal coberta pelo acervo."
+      },
+      "DayCoverageEntry": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date",
+            "title": "Day"
+          },
+          "readings": {
+            "type": "integer",
+            "title": "Readings"
+          },
+          "expected_readings": {
+            "type": "integer",
+            "title": "Expected Readings"
+          },
+          "completeness": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Completeness"
+          },
+          "segments": {
+            "type": "integer",
+            "title": "Segments",
+            "description": "Trechos contíguos. >1 indica descontinuidade no dia."
+          },
+          "longest_segment": {
+            "type": "integer",
+            "title": "Longest Segment"
+          },
+          "faulted_readings": {
+            "type": "integer",
+            "title": "Faulted Readings"
+          },
+          "is_fragmented": {
+            "type": "boolean",
+            "title": "Is Fragmented"
+          },
+          "is_absent": {
+            "type": "boolean",
+            "title": "Is Absent",
+            "description": "Dia sem nenhuma leitura — distinto de fragmentado, aqui não há o que analisar"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "readings",
+          "expected_readings",
+          "completeness",
+          "segments",
+          "longest_segment",
+          "faulted_readings",
+          "is_fragmented",
+          "is_absent"
+        ],
+        "title": "DayCoverageEntry",
+        "description": "Cobertura de telemetria de um dia."
+      },
+      "DriftResponse": {
+        "properties": {
+          "severity": {
+            "$ref": "#/components/schemas/DriftSeverity"
+          },
+          "requires_action": {
+            "type": "boolean",
+            "title": "Requires Action",
+            "description": "True apenas em drift severo; moderado pede investigação, não retreino"
+          },
+          "worst_feature": {
+            "type": "string",
+            "title": "Worst Feature"
+          },
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/FeatureDrift"
+            },
+            "type": "array",
+            "title": "Features"
+          }
+        },
+        "type": "object",
+        "required": [
+          "severity",
+          "requires_action",
+          "worst_feature",
+          "features"
+        ],
+        "title": "DriftResponse",
+        "description": "Comparação entre a distribuição de referência e a recente."
+      },
+      "DriftSeverity": {
+        "type": "string",
+        "enum": [
+          "none",
+          "moderate",
+          "severe"
+        ],
+        "title": "DriftSeverity",
+        "description": "Quanto a distribuição atual se afastou da de referência."
+      },
+      "FeatureDrift": {
+        "properties": {
+          "feature": {
+            "type": "string",
+            "title": "Feature"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "method": {
+            "type": "string",
+            "title": "Method"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/DriftSeverity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "feature",
+          "score",
+          "method",
+          "severity"
+        ],
+        "title": "FeatureDrift"
+      },
+      "ForecastSection": {
+        "properties": {
+          "power_kw": {
+            "type": "number",
+            "title": "Power Kw",
+            "description": "Potência prevista **como deve ser exibida**: nunca negativa. A regra é aplicada aqui, no servidor — no v1 vivia no prompt do LLM."
+          },
+          "power_kw_measured": {
+            "type": "number",
+            "title": "Power Kw Measured",
+            "description": "A saída crua do modelo, que pode ser negativa (consumo parasita). Exposta para que o cliente possa auditar o clamp."
+          },
+          "target_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Target Time"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version",
+            "description": "Identidade do modelo que produziu a previsão"
+          }
+        },
+        "type": "object",
+        "required": [
+          "power_kw",
+          "power_kw_measured",
+          "target_time",
+          "model_version"
+        ],
+        "title": "ForecastSection",
+        "description": "Previsão de geração para o passo seguinte."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthSection": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/HealthStatus"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "Explicação da decisão, em português"
+          },
+          "exceedances": {
+            "type": "integer",
+            "title": "Exceedances",
+            "description": "Janelas acima do limiar, incluindo picos isolados"
+          },
+          "sustained_anomalies": {
+            "type": "integer",
+            "title": "Sustained Anomalies",
+            "description": "Janelas em corridas longas o bastante para alarmar"
+          },
+          "evaluated_windows": {
+            "type": "integer",
+            "title": "Evaluated Windows"
+          },
+          "persistence_window": {
+            "type": "integer",
+            "title": "Persistence Window",
+            "description": "Janelas consecutivas exigidas para caracterizar alerta"
+          },
+          "previous_period_anomalies": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Period Anomalies",
+            "description": "Anomalias na véspera. `null` significa desconhecido — nunca zero."
+          },
+          "previous_period_known": {
+            "type": "boolean",
+            "title": "Previous Period Known"
+          },
+          "threshold": {
+            "$ref": "#/components/schemas/ThresholdInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "reason",
+          "exceedances",
+          "sustained_anomalies",
+          "evaluated_windows",
+          "persistence_window",
+          "previous_period_known",
+          "threshold"
+        ],
+        "title": "HealthSection",
+        "description": "Veredito de saúde da turbina."
+      },
+      "HealthStatus": {
+        "type": "string",
+        "enum": [
+          "OK",
+          "ALERTA",
+          "EM_MANUTENCAO"
+        ],
+        "title": "HealthStatus",
+        "description": "Veredito de saúde da turbina para um período."
+      },
+      "LivenessResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "alive"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "title": "LivenessResponse"
+      },
+      "ReadinessResponse": {
+        "properties": {
+          "ready": {
+            "type": "boolean",
+            "title": "Ready"
+          },
+          "checks": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Checks"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ready",
+          "checks"
+        ],
+        "title": "ReadinessResponse",
+        "description": "Estado de prontidão para receber tráfego."
+      },
+      "ThresholdInfo": {
+        "properties": {
+          "value": {
+            "type": "number",
+            "title": "Value",
+            "description": "Valor do limiar de erro de reconstrução"
+          },
+          "method": {
+            "type": "string",
+            "title": "Method",
+            "description": "Como foi derivado: percentile | std_deviations"
+          },
+          "parameter": {
+            "type": "number",
+            "title": "Parameter",
+            "description": "O parâmetro do método (ex.: 99.5)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "method",
+          "parameter"
+        ],
+        "title": "ThresholdInfo",
+        "description": "O limiar usado na decisão — exposto para tornar o alerta auditável."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

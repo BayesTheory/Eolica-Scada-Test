@@ -1,0 +1,21 @@
+node_modules/
+dist/
+dist-ssr/
+coverage/
+*.local
+.vite/
+
+# Editores
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# `openapi.json` e `src/api/schema.ts` SÃO versionados de propósito: são o
+# contrato com o backend, e mudanças neles precisam aparecer no diff do PR.

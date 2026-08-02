@@ -1,0 +1,118 @@
+/**
+ * Tokens de cor e tipografia.
+ *
+ * Os valores vêm de uma palette validada: as cores que viram marca em gráfico
+ * foram passadas por um validador de contraste e separação para daltonismo,
+ * não escolhidas no olho.
+ *
+ * O resultado dessa validação está codificado aqui em duas regras que o resto
+ * da interface obedece:
+ *
+ * 1. Cor de status NUNCA carrega significado sozinha. `--status-warning` fica
+ *    abaixo de 3:1 no fundo claro por construção, então toda marca de status
+ *    vem acompanhada de rótulo textual e valor numérico visíveis.
+ * 2. Texto usa tokens de tinta, nunca a cor da série. Um valor numérico fica em
+ *    `--text-primary`; quem carrega identidade é a marca colorida ao lado.
+ *
+ * O modo escuro é *selecionado*, não invertido: são passos próprios das mesmas
+ * rampas, validados contra a superfície escura. As duas declarações (media
+ * query e `data-theme`) existem porque o toggle do usuário precisa vencer o
+ * ajuste do sistema operacional nos dois sentidos.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Superfícies */
+  --surface-1: #fcfcfb;
+  --surface-page: #f9f9f7;
+
+  /* Tinta */
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+
+  /* Cromo de gráfico */
+  --gridline: #e1e0d9;
+  --baseline: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.1);
+
+  /* Série única — magnitude. Uma série dispensa legenda: o título a nomeia. */
+  --series-1: #2a78d6;
+  --series-1-soft: #cde2fb;
+
+  /* Status — fixos, nunca tematizados, sempre com rótulo ao lado */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius: 4px;
+  --radius-card: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --surface-page: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --gridline: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+    --series-1: #3987e5;
+    --series-1-soft: #184f95;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-1: #1a1a19;
+  --surface-page: #0d0d0d;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #898781;
+  --gridline: #2c2c2a;
+  --baseline: #383835;
+  --border: rgba(255, 255, 255, 0.1);
+  --series-1: #3987e5;
+  --series-1-soft: #184f95;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--surface-page);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Colunas que precisam alinhar verticalmente — e só elas. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
