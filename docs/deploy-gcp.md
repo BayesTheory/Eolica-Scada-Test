@@ -25,9 +25,9 @@ Exigem suas credenciais, então precisam ser executados por você.
 
 ```bash
 # ── ajuste estas quatro linhas ───────────────────────────────────────────────
-export PROJECT_ID="seu-projeto-id"
-export PROJECT_NUMBER="000000000000"           # gcloud projects describe $PROJECT_ID --format='value(projectNumber)'
-export GITHUB_REPO="SEU-USUARIO/SEU-REPO"
+export PROJECT_ID="fiery-rarity-504300-h1"     # seu projeto
+export PROJECT_NUMBER="475043793749"           # gcloud projects describe $PROJECT_ID
+export GITHUB_REPO="BayesTheory/Eolica-Scada-Test"
 export REGION="southamerica-east1"             # São Paulo
 
 gcloud config set project "$PROJECT_ID"
@@ -103,14 +103,14 @@ secrets — nenhuma delas é sigilosa):
 
 | Nome | Valor |
 |---|---|
-| `GCP_PROJECT_ID` | o seu `$PROJECT_ID` |
-| `GCP_DEPLOY_SERVICE_ACCOUNT` | `github-deploy@$PROJECT_ID.iam.gserviceaccount.com` |
+| `GCP_PROJECT_ID` | `fiery-rarity-504300-h1` |
+| `GCP_DEPLOY_SERVICE_ACCOUNT` | `github-deploy@fiery-rarity-504300-h1.iam.gserviceaccount.com` |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | veja abaixo |
 
-> Identificador de projeto não é segredo, mas também não precisa ir para um
-> repositório público: ele torna o projeto enumerável e dá a quem quiser tentar
-> abuso um alvo nomeado. Por isso ele vive em *variável do GitHub Actions*, e a
-> documentação usa placeholder.
+> Identificador e número de projeto não são credenciais — não dão acesso a nada
+> sozinhos. O que protege o projeto é a `attribute-condition` do provider, que
+> prende a federação a este repositório, e as permissões mínimas da service
+> account. Sem esses dois, conhecer o id bastaria; com eles, não basta.
 
 ```bash
 echo "projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/providers/github-provider"
