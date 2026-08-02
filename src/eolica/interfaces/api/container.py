@@ -27,12 +27,13 @@ from eolica.application.use_cases import (
 )
 from eolica.domain.forecasting import Horizon, PowerForecastModel
 from eolica.domain.health import AnomalyThreshold, ReconstructionError, ReconstructionModel
+from eolica.domain.turbine import TurbineSpec
 from eolica.infrastructure.config import Settings
 from eolica.infrastructure.ml.baselines import (
     MovingAverageForecaster,
-    ZScoreBaselineDetector,
     calibrate_threshold_windows,
 )
+from eolica.infrastructure.ml.regime_detector import RegimeConditionedDetector
 from eolica.infrastructure.persistence import CsvScadaRepository
 from eolica.shared.errors import DataSourceError, InsufficientDataError
 
@@ -124,7 +125,21 @@ def build_container(settings: Settings) -> Container:
             subject="leituras contíguas em operação normal",
         )
 
-    detector = ZScoreBaselineDetector.fit(windows, window_size=settings.health_window_size)
+    # Condicionado ao regime, e não global. A escolha vem de medição: sobre
+    # 61.239 janelas do dataset completo, o detector global entregava 42% de
+    # precisão e 34% de taxa de alarme falso; condicionar ao regime de vento
+    # levou a 99% e 0,20% — uma redução de 171× em alarme falso.
+    #
+    # O custo é recall menor (88,7% → 57,4%), e é uma troca deliberada: um
+    # detector que dispara em um terço dos períodos saudáveis é desligado pelo
+    # operador, e aí o recall real vira zero.
+    #
+    # Reproduza com: python scripts/compare_detectors.py
+    detector = RegimeConditionedDetector.fit(
+        windows,
+        window_size=settings.health_window_size,
+        spec=TurbineSpec.aventa_av7(),
+    )
 
     errors: list[ReconstructionError] = []
     for window in windows:

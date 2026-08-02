@@ -17,5 +17,11 @@ from eolica.infrastructure.ml.baselines import (
     PersistenceForecaster,
     ZScoreBaselineDetector,
 )
+from eolica.infrastructure.ml.regime_detector import RegimeConditionedDetector
 
-__all__ = ["MovingAverageForecaster", "PersistenceForecaster", "ZScoreBaselineDetector"]
+__all__ = [
+    "MovingAverageForecaster",
+    "PersistenceForecaster",
+    "RegimeConditionedDetector",
+    "ZScoreBaselineDetector",
+]
