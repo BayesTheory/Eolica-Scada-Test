@@ -85,7 +85,15 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"  # noqa: S104 — em container, o bind precisa ser amplo
     api_port: int = Field(default=8000, ge=1, le=65535)
     cors_allowed_origins: tuple[str, ...] = ()
+    """Vazio por padrão — e deve continuar vazio.
+
+    O frontend é servido pela própria API, na mesma origem. Só preencha se
+    existir um cliente hospedado em outro domínio.
+    """
+
     enable_metrics: bool = True
+    serve_frontend: bool = True
+    """Serve `frontend/dist` quando ele existe. Desligue no container de treino."""
 
     # ── co-piloto (opcional, desligado por padrão) ───────────────────────────
     copilot_enabled: bool = False

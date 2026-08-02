@@ -21,6 +21,7 @@ from eolica.infrastructure.observability import configure_logging, mount_metrics
 from eolica.interfaces.api.container import Container, build_container
 from eolica.interfaces.api.errors import register_exception_handlers
 from eolica.interfaces.api.routers import operations, reports
+from eolica.interfaces.api.static_files import mount_frontend
 
 logger = logging.getLogger(__name__)
 
@@ -90,5 +91,10 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
 
     if resolved.enable_metrics:
         mount_metrics(app)
+
+    # Por último: a rota catch-all da SPA precisa vir depois de todas as rotas
+    # de API, senão sombrearia qualquer uma registrada em seguida.
+    if resolved.serve_frontend:
+        mount_frontend(app)
 
     return app
