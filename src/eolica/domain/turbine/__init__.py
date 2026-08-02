@@ -9,6 +9,7 @@ from eolica.domain.turbine.entities import (
     ReadingWindow,
     TurbineReading,
 )
+from eolica.domain.turbine.regimes import OperatingRegime
 from eolica.domain.turbine.value_objects import (
     OperatingStatus,
     PitchAngle,
@@ -21,6 +22,7 @@ from eolica.domain.turbine.value_objects import (
 
 __all__ = [
     "FEATURE_NAMES",
+    "OperatingRegime",
     "OperatingStatus",
     "PitchAngle",
     "PowerKw",
