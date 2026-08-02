@@ -59,7 +59,13 @@ PROVIDER="github-provider"
 DEPLOY_SA="github-deploy@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
 
 command -v gcloud >/dev/null || die "gcloud não encontrado no PATH"
-command -v gh >/dev/null || die "gh não encontrado no PATH (https://cli.github.com)"
+
+# `gh` é conveniência, não requisito: ele só grava as três variáveis no GitHub,
+# que também dá para preencher pela interface. Abortar o provisionamento inteiro
+# do GCP por causa disso seria desproporcional — o script faz o que consegue e
+# imprime o resto para copiar.
+HAS_GH=1
+command -v gh >/dev/null || HAS_GH=0
 
 gcloud auth list --filter=status:ACTIVE --format='value(account)' | grep -q . \
   || die "gcloud não autenticado. Rode: gcloud auth login"
@@ -162,12 +168,21 @@ step "Variáveis no GitHub"
 # ─────────────────────────────────────────────────────────────────────────────
 PROVIDER_PATH="projects/${GCP_PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}/providers/${PROVIDER}"
 
-# Variables, não secrets: nenhuma delas é sigilosa, e variável aparece no log da
-# execução — o que ajuda a depurar em vez de virar `***`.
-gh variable set GCP_PROJECT_ID --repo "$GITHUB_REPO" --body "$GCP_PROJECT_ID"
-gh variable set GCP_DEPLOY_SERVICE_ACCOUNT --repo "$GITHUB_REPO" --body "$DEPLOY_SA"
-gh variable set GCP_WORKLOAD_IDENTITY_PROVIDER --repo "$GITHUB_REPO" --body "$PROVIDER_PATH"
-ok "3 variáveis configuradas em $GITHUB_REPO"
+if [ "$HAS_GH" -eq 1 ]; then
+  # Variables, não secrets: nenhuma delas é sigilosa, e variável aparece no log
+  # da execução — o que ajuda a depurar em vez de virar `***`.
+  gh variable set GCP_PROJECT_ID --repo "$GITHUB_REPO" --body "$GCP_PROJECT_ID"
+  gh variable set GCP_DEPLOY_SERVICE_ACCOUNT --repo "$GITHUB_REPO" --body "$DEPLOY_SA"
+  gh variable set GCP_WORKLOAD_IDENTITY_PROVIDER --repo "$GITHUB_REPO" --body "$PROVIDER_PATH"
+  ok "3 variáveis configuradas em $GITHUB_REPO"
+else
+  printf '  %s•%s gh não instalado — preencha à mão em:\n' "$YELLOW" "$OFF"
+  printf '    https://github.com/%s/settings/variables/actions\n\n' "$GITHUB_REPO"
+  printf '    %-32s %s\n' "GCP_PROJECT_ID" "$GCP_PROJECT_ID"
+  printf '    %-32s %s\n' "GCP_DEPLOY_SERVICE_ACCOUNT" "$DEPLOY_SA"
+  printf '    %-32s %s\n' "GCP_WORKLOAD_IDENTITY_PROVIDER" "$PROVIDER_PATH"
+  printf '\n    (para automatizar: winget install GitHub.cli && gh auth login)\n'
+fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 step "Verificação"
@@ -177,8 +192,11 @@ gcloud artifacts repositories describe "$REPOSITORY" --location="$GCP_REGION" >/
 gcloud iam workload-identity-pools providers describe "$PROVIDER" \
   --location=global --workload-identity-pool="$POOL" >/dev/null \
   && ok "provider OIDC acessível"
-gh variable list --repo "$GITHUB_REPO" | grep -q GCP_WORKLOAD_IDENTITY_PROVIDER \
-  && ok "variáveis visíveis ao workflow"
-
-printf '\n%sPronto.%s O próximo push na main dispara o deploy.\n' "$GREEN" "$OFF"
+if [ "$HAS_GH" -eq 1 ] \
+  && gh variable list --repo "$GITHUB_REPO" 2>/dev/null | grep -q GCP_WORKLOAD_IDENTITY_PROVIDER; then
+  ok "variáveis visíveis ao workflow"
+  printf '\n%sPronto.%s O próximo push na main dispara o deploy.\n' "$GREEN" "$OFF"
+else
+  printf '\n%sGCP provisionado.%s Falta só preencher as variáveis no GitHub.\n' "$GREEN" "$OFF"
+fi
 printf 'Acompanhe em: https://github.com/%s/actions\n\n' "$GITHUB_REPO"
