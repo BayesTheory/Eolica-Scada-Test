@@ -171,6 +171,54 @@ def drift() -> None:
 
 
 @app.command()
+def backtest() -> None:
+    """Mede quanto a janela de persistência vale sobre o histórico inteiro.
+
+    Compara valores de janela quanto a episódios de alarme, alarmes falsos e
+    detecções perdidas. O v1 declarava `persistence_window: 6` no config sem
+    nunca lê-lo — e sem nenhum número que justificasse o 6.
+    """
+    try:
+        container = build_container(_settings())
+        summary = container.backtest_use_case().execute()
+    except EolicaError as exc:
+        _fail(exc)
+        return
+
+    typer.secho("\nbacktest da janela de persistência", fg=typer.colors.CYAN, bold=True)
+    typer.echo(
+        f"  {summary.total_readings:,} leituras | "
+        f"{summary.analysed_segments} segmentos contíguos | "
+        f"{summary.report.evaluated_windows:,} janelas avaliadas"
+    )
+    typer.echo(f"  limiar: {summary.report.threshold.value:.6f}")
+    typer.echo(f"  janelas com falha reportada pelo SCADA: {summary.real_event_windows:,}\n")
+
+    header = f"  {'janela':>7} {'episódios':>10} {'precisão':>9} {'recall':>7} {'alarme falso':>13}"
+    typer.echo(header)
+    typer.echo("  " + "-" * (len(header) - 2))
+    for outcome in summary.report.outcomes:
+        typer.echo(
+            f"  {outcome.persistence_window:>7} {outcome.episodes:>10,} "
+            f"{outcome.metrics.precision:>8.1%} {outcome.recall:>6.1%} "
+            f"{outcome.false_alarm_rate:>12.2%}"
+        )
+
+    baseline = summary.report.outcomes[0].persistence_window
+    for outcome in summary.report.outcomes[1:]:
+        avoided = summary.report.false_alarms_avoided(
+            baseline=baseline, candidate=outcome.persistence_window
+        )
+        lost = summary.report.detections_lost(
+            baseline=baseline, candidate=outcome.persistence_window
+        )
+        typer.echo(
+            f"\n  janela {outcome.persistence_window} vs {baseline}: "
+            f"evita {avoided:,} janelas de alarme falso, perde {lost:,} de detecção"
+        )
+
+
+@app.command()
 def serve(
     host: Annotated[str | None, typer.Option(help="Interface de bind")] = None,
     port: Annotated[int | None, typer.Option(help="Porta TCP")] = None,
