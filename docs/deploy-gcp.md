@@ -19,19 +19,28 @@ Não use chave JSON de service account nos secrets do GitHub. Este repositório 
 teve uma chave de API commitada em texto claro — fechar o ciclo reintroduzindo
 uma credencial permanente seria trocar um erro por outro.
 
-## Preparação — comandos que você roda uma vez
+## Preparação — uma vez na vida do projeto
 
-Exigem suas credenciais, então precisam ser executados por você.
+Exige suas credenciais, então roda na sua máquina.
+
+Os valores vivem no `.env` (gitignored), não neste documento — o repositório é
+público, e identificador de projeto não é credencial mas também não precisa ser
+indexado. Copie de `.env.example` e preencha:
 
 ```bash
-# ── ajuste estas quatro linhas ───────────────────────────────────────────────
-export PROJECT_ID="fiery-rarity-504300-h1"     # seu projeto
-export PROJECT_NUMBER="475043793749"           # gcloud projects describe $PROJECT_ID
-export GITHUB_REPO="BayesTheory/Eolica-Scada-Test"
-export REGION="southamerica-east1"             # São Paulo
-
-gcloud config set project "$PROJECT_ID"
+cp .env.example .env
+# edite as quatro variáveis da seção "provisionamento GCP"
 ```
+
+Depois:
+
+```bash
+./scripts/setup-gcp.sh
+```
+
+O script é idempotente — rodar de novo não quebra nada — e faz tudo que as
+seções abaixo descrevem, terminando com uma verificação. Se preferir entender
+antes de executar, as seções seguintes explicam cada passo e o porquê dele.
 
 ### 1. Habilitar as APIs
 
@@ -103,9 +112,12 @@ secrets — nenhuma delas é sigilosa):
 
 | Nome | Valor |
 |---|---|
-| `GCP_PROJECT_ID` | `fiery-rarity-504300-h1` |
-| `GCP_DEPLOY_SERVICE_ACCOUNT` | `github-deploy@fiery-rarity-504300-h1.iam.gserviceaccount.com` |
+| `GCP_PROJECT_ID` | o `$GCP_PROJECT_ID` do seu `.env` |
+| `GCP_DEPLOY_SERVICE_ACCOUNT` | `github-deploy@$GCP_PROJECT_ID.iam.gserviceaccount.com` |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | veja abaixo |
+
+O `scripts/setup-gcp.sh` popula as três via `gh` — esta tabela existe para o
+caso de você preferir conferir ou preencher à mão.
 
 > Identificador e número de projeto não são credenciais — não dão acesso a nada
 > sozinhos. O que protege o projeto é a `attribute-condition` do provider, que
