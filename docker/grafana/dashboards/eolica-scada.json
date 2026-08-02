@@ -1,0 +1,240 @@
+{
+  "uid": "eolica-scada",
+  "title": "Eólica SCADA — saúde do serviço e do modelo",
+  "description": "Duas perguntas distintas: o serviço está de pé, e o modelo ainda vale? Um serviço saudável servindo um modelo com drift severo responde 200 em tudo e está errado.",
+  "tags": ["eolica", "mlops"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "feature",
+        "label": "Feature",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(eolica_feature_drift_psi, feature)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Saúde do serviço",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Latência das requisições (p50 / p95 / p99)",
+      "description": "O p99 é o que o operador sente. No v1 a primeira requisição do dia calculava o limiar varrendo 32 mil registros — o p99 teria denunciado isso no primeiro dia.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2, "fillOpacity": 5 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(eolica_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(eolica_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(eolica_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Requisições por status HTTP",
+      "description": "404 é comportamento correto (data fora do acervo), não incidente. 5xx é incidente. O v1 não distinguia os dois: data inexistente virava 500.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "lineWidth": 2, "fillOpacity": 10, "stacking": { "mode": "normal" } } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "500" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] },
+          { "matcher": { "id": "byName", "options": "404" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }] },
+          { "matcher": { "id": "byName", "options": "200" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(eolica_request_duration_seconds_count[5m]))",
+          "legendFormat": "{{status}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Comportamento do detector",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Vereditos de saúde emitidos",
+      "description": "Uma mudança abrupta na proporção de ALERTA raramente é a turbina mudando de comportamento — costuma ser o dado de entrada mudando.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 10, "stacking": { "mode": "normal" } } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "ALERTA" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] },
+          { "matcher": { "id": "byName", "options": "OK" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] },
+          { "matcher": { "id": "byName", "options": "EM_MANUTENCAO" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } }] }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(eolica_health_verdict_total[15m]))",
+          "legendFormat": "{{status}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Cobertura dos relatórios (mediana e p10)",
+      "description": "Fração do dia efetivamente analisada. O p10 caindo significa dias fragmentados chegando — e um veredito 'OK' sobre 40% de cobertura vale muito menos que sobre 100%. É a métrica que teria mostrado, no v1, que janelas furadas estavam sendo analisadas.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "custom": { "lineWidth": 2, "fillOpacity": 5 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(eolica_report_coverage_ratio_bucket[1h])) by (le))",
+          "legendFormat": "mediana",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.10, sum(rate(eolica_report_coverage_ratio_bucket[1h])) by (le))",
+          "legendFormat": "p10",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Limiar de anomalia em vigor",
+      "description": "Calibrado na subida do processo. Um salto aqui entre deploys significa que a distribuição de referência mudou — vale investigar antes de confiar nos alertas.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 18 },
+      "fieldConfig": {
+        "defaults": { "decimals": 4, "color": { "mode": "fixed", "fixedColor": "text" } }
+      },
+      "options": { "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "eolica_anomaly_threshold", "refId": "A" }]
+    },
+    {
+      "type": "row",
+      "title": "Drift — o modelo ainda vê o mundo em que foi treinado?",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "PSI por feature",
+      "description": "Convenção do setor: < 0.10 estável, 0.10–0.25 investigar, > 0.25 agir. As faixas estão marcadas como thresholds.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 16, "x": 0, "y": 25 },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 3,
+          "custom": { "lineWidth": 2, "fillOpacity": 0, "thresholdsStyle": { "mode": "dashed" } },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 0.1 },
+              { "color": "red", "value": 0.25 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "eolica_feature_drift_psi{feature=~\"$feature\"}",
+          "legendFormat": "{{feature}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Pior feature agora",
+      "description": "Por onde começar a investigação. Agregar drift por média esconderia exatamente o caso que interessa: uma feature colapsando enquanto as outras seguem estáveis.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 8, "x": 16, "y": 25 },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 3,
+          "min": 0,
+          "max": 0.5,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 0.1 },
+              { "color": "red", "value": 0.25 }
+            ]
+          }
+        }
+      },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "expr": "sort_desc(eolica_feature_drift_psi)",
+          "legendFormat": "{{feature}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Duração da inferência por modelo",
+      "description": "Separado da latência HTTP de propósito: distingue 'o modelo está lento' de 'a API está lenta'.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 34 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "lineWidth": 2, "fillOpacity": 5 } } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(eolica_inference_duration_seconds_bucket[5m])) by (le, model))",
+          "legendFormat": "{{model}} p95",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

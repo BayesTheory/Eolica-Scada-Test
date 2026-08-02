@@ -1,0 +1,14 @@
+apiVersion: 1
+
+providers:
+  - name: eolica
+    orgId: 1
+    folder: Eólica SCADA
+    type: file
+    disableDeletion: true
+    # Dashboard versionado no repositório, provisionado como código. Editar pela
+    # UI e esquecer de exportar é como dashboards somem — aqui a edição via UI
+    # fica desabilitada de propósito.
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards
