@@ -1,0 +1,132 @@
+name: Deploy — Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**/*.md", "docs/**", "notebooks/**"]
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Digite "deploy" para confirmar'
+        required: true
+
+# Autenticação sem chave: o GitHub troca seu token OIDC por credencial GCP de
+# curta duração via Workload Identity Federation. Nenhum JSON de service
+# account existe nos secrets — o que importa especialmente neste repositório,
+# que já teve uma chave de API commitada em texto claro.
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-cloud-run
+  cancel-in-progress: false
+
+env:
+  SERVICE: eolica-scada
+  REGION: southamerica-east1
+  REPOSITORY: eolica
+
+jobs:
+  deploy:
+    name: build e deploy
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticar no Google Cloud (keyless)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configurar Docker para o Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build e push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/api.Dockerfile
+          push: true
+          # Duas tags: o SHA é imutável e é o que se faz rollback para; `latest`
+          # existe só para leitura humana e nunca é usada no deploy.
+          tags: |
+            ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
+            ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+
+      - name: Deploy no Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          # Sempre pelo digest do SHA, nunca por `latest`: é o mesmo princípio
+          # que faz o registry de modelos recusar o alias `latest`. Uma revisão
+          # precisa apontar para um artefato identificável.
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
+          flags: >-
+            --allow-unauthenticated
+            --port=8080
+            --cpu=1
+            --memory=1Gi
+            --concurrency=40
+            --min-instances=0
+            --max-instances=3
+            --timeout=60s
+            --cpu-boost
+          env_vars: |
+            EOLICA_ENVIRONMENT=production
+            EOLICA_LOG_FORMAT=json
+            EOLICA_LOG_LEVEL=INFO
+            EOLICA_HEALTH_WINDOW_SIZE=60
+            EOLICA_PERSISTENCE_WINDOW=6
+
+      - name: Smoke test na revisão publicada
+        run: |
+          URL="${{ steps.deploy.outputs.url }}"
+          echo "verificando $URL"
+
+          for attempt in $(seq 1 20); do
+            if curl -fsS "$URL/health/ready" > /dev/null; then break; fi
+            echo "  aguardando readiness (tentativa $attempt)"
+            sleep 3
+          done
+
+          curl -fsS "$URL/health/ready" | tee /tmp/ready.json
+          python -c "import json;d=json.load(open('/tmp/ready.json'));assert d['ready'], d"
+
+          # Regressão do bug central da v1: data inexistente é 404, nunca 500.
+          status=$(curl -s -o /dev/null -w "%{http_code}" "$URL/api/v1/reports/2030-01-01")
+          test "$status" = "404" || { echo "esperava 404, veio $status"; exit 1; }
+
+          # A SPA responde na raiz.
+          curl -fsS "$URL/" | grep -q "<div id=\"root\">" || { echo "frontend não servido"; exit 1; }
+
+          echo "::notice title=Deploy concluído::$URL"
+
+      - name: Rollback automático se o smoke test falhar
+        if: failure() && steps.deploy.outcome == 'success'
+        run: |
+          echo "smoke test falhou — devolvendo 100% do tráfego à revisão anterior"
+          PREVIOUS=$(gcloud run revisions list \
+            --service="${{ env.SERVICE }}" --region="${{ env.REGION }}" \
+            --format="value(metadata.name)" --sort-by="~metadata.creationTimestamp" \
+            | sed -n '2p')
+          if [ -n "$PREVIOUS" ]; then
+            gcloud run services update-traffic "${{ env.SERVICE }}" \
+              --region="${{ env.REGION }}" --to-revisions="$PREVIOUS=100"
+            echo "::warning title=Rollback::tráfego devolvido para $PREVIOUS"
+          else
+            echo "::warning title=Rollback::não há revisão anterior (primeiro deploy)"
+          fi

@@ -1,11 +1,28 @@
 # syntax=docker/dockerfile:1.7
 #
-# Imagem da API. Multi-stage para que compilador e cache de build não cheguem
-# à imagem final, e usuário não-root porque um processo que só lê CSV e serve
-# HTTP não tem razão nenhuma para ser root dentro do container.
+# Imagem única servindo API e frontend. Multi-stage para que nem o compilador
+# Python nem o Node cheguem à imagem final, e usuário não-root porque um
+# processo que lê CSV e serve HTTP não tem razão para ser root.
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Stage 1 — dependências
+# Stage 1 — build do frontend
+# ─────────────────────────────────────────────────────────────────────────────
+FROM node:22-slim AS frontend
+
+WORKDIR /build
+
+# `npm ci` a partir do lockfile antes de copiar o código: a camada de
+# dependências é reaproveitada enquanto o lockfile não muda.
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+COPY frontend/ ./
+# `tsc --noEmit` roda junto: um contrato quebrado entre front e API derruba o
+# build da imagem, não o navegador do operador.
+RUN npm run build
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 2 — dependências Python
 # ─────────────────────────────────────────────────────────────────────────────
 FROM python:3.11-slim-bookworm AS builder
 
@@ -16,8 +33,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /build
 
-# Copiar só os metadados antes do código faz o Docker reaproveitar a camada de
-# dependências enquanto o pyproject não muda — o que é quase sempre.
 COPY pyproject.toml README.md ./
 COPY src/eolica/__init__.py src/eolica/__init__.py
 
@@ -29,7 +44,7 @@ COPY src/ src/
 RUN /opt/venv/bin/pip install --no-deps .
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Stage 2 — runtime
+# Stage 3 — runtime
 # ─────────────────────────────────────────────────────────────────────────────
 FROM python:3.11-slim-bookworm AS runtime
 
@@ -37,7 +52,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH" \
     EOLICA_ENVIRONMENT=production \
-    EOLICA_LOG_FORMAT=json
+    EOLICA_LOG_FORMAT=json \
+    PORT=8080
 
 RUN groupadd --system --gid 1001 eolica \
     && useradd --system --uid 1001 --gid eolica --create-home eolica
@@ -45,21 +61,21 @@ RUN groupadd --system --gid 1001 eolica \
 WORKDIR /app
 
 COPY --from=builder /opt/venv /opt/venv
+COPY --from=frontend --chown=eolica:eolica /build/dist/ frontend/dist/
 COPY --chown=eolica:eolica data/samples/ data/samples/
 COPY --chown=eolica:eolica data/metadata/ data/metadata/
 
 USER eolica
 
-EXPOSE 8000
+# 8080 é o default do Cloud Run; `$PORT` sobrescreve em qualquer plataforma.
+EXPOSE 8080
 
 # O probe bate em /health/live, que não toca modelo nem disco: uma dependência
 # lenta não pode fazer o orquestrador matar um processo saudável.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=2).status==200 else 1)"
+    CMD python -c "import os,urllib.request,sys; sys.exit(0 if urllib.request.urlopen(f\"http://127.0.0.1:{os.environ.get('PORT','8080')}/health/live\", timeout=2).status==200 else 1)"
 
-ENTRYPOINT ["uvicorn"]
-CMD ["eolica.interfaces.api.app:create_app", \
-     "--factory", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--no-access-log"]
+# `sh -c` para que `$PORT` seja expandido. Sem isso o Cloud Run injeta a porta e
+# o processo escuta noutra, e o deploy falha no health check com uma mensagem
+# que não diz nada sobre porta.
+CMD ["sh", "-c", "exec uvicorn eolica.interfaces.api.app:create_app --factory --host 0.0.0.0 --port ${PORT:-8080} --no-access-log"]

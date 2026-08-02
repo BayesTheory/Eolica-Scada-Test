@@ -104,6 +104,63 @@ jobs:
           retention-days: 7
 
   # ───────────────────────────────────────────────────────────────────────────
+  # Frontend — tipos, testes e, principalmente, o contrato com a API.
+  # ───────────────────────────────────────────────────────────────────────────
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Tipos correspondem ao schema publicado
+        # O passo que impede o skew entre backend e frontend: regenera os tipos
+        # a partir do openapi.json versionado e falha se o resultado divergir do
+        # que está commitado. Mudar um contrato sem regenerar quebra aqui, e não
+        # na tela do operador.
+        run: |
+          npm run api:types
+          git diff --exit-code src/api/schema.ts \
+            || { echo "::error::src/api/schema.ts está defasado. Rode 'npm run api:types'."; exit 1; }
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Testes
+        run: npm run test
+
+      - name: Build
+        run: npx vite build
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # O openapi.json versionado reflete o código?
+  # ───────────────────────────────────────────────────────────────────────────
+  contract:
+    name: contrato da API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv pip install --system -e ".[dev]"
+      - name: Schema publicado está atualizado
+        run: |
+          python scripts/export_openapi.py
+          git diff --exit-code frontend/openapi.json \
+            || { echo "::error::frontend/openapi.json está defasado. Rode 'python scripts/export_openapi.py'."; exit 1; }
+
+  # ───────────────────────────────────────────────────────────────────────────
   # Segurança — dependências e código.
   # ───────────────────────────────────────────────────────────────────────────
   security:
@@ -135,7 +192,7 @@ jobs:
   docker:
     name: imagem e smoke test
     runs-on: ubuntu-latest
-    needs: [quality, tests]
+    needs: [quality, tests, frontend]
     steps:
       - uses: actions/checkout@v4
 
